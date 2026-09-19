@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [master, windows-support]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.9", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Download Chinese wizard translation
+        run: >
+          curl -fsSL -o installer/ChineseSimplified.isl
+          https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl
+        continue-on-error: true  # 缺语言包时回退英文向导
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path devswitch/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Build setup.exe
+        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} devswitch.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DevSwitch-Setup-${{ steps.ver.outputs.version }}
+          path: dist/DevSwitch-Setup-*.exe
+
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rpm toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
+      - name: Build deb + rpm (amd64 & arm64)
+        run: python3 tools/build_packages.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build UI bundle
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build

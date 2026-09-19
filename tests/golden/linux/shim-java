@@ -1,0 +1,13 @@
+#!/bin/sh
+# DevSwitch shim — java
+ENVFILE="/home/tester/.config/devswitch/current.env"
+[ -f "$ENVFILE" ] && . "$ENVFILE"
+if [ -n "$DEVSWITCH_JAVA_HOME" ]; then
+  if [ -x "$DEVSWITCH_JAVA_HOME/bin/java" ]; then
+    exec "$DEVSWITCH_JAVA_HOME/bin/java" "$@"
+  elif [ -x "$DEVSWITCH_JAVA_HOME/jre/bin/java" ]; then
+    exec "$DEVSWITCH_JAVA_HOME/jre/bin/java" "$@"
+  fi
+fi
+echo "DevSwitch: 未配置 Java，或当前 JDK 没有 java。运行 devswitch list / use" >&2
+exit 127

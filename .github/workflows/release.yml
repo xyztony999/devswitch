@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Download Chinese wizard translation
+        run: >
+          curl -fsSL -o installer/ChineseSimplified.isl
+          https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl
+        continue-on-error: true
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          $pkg = (Select-String -Path devswitch/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if ($tag -ne $pkg) { throw "tag v$tag 与包版本 $pkg 不一致" }
+          "version=$tag" >> $env:GITHUB_OUTPUT
+      - name: Build setup.exe (x64)
+        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} devswitch.iss
+      - name: Build setup.exe (ARM64)
+        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} /DArchMode=arm64 devswitch.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: dist/DevSwitch-Setup-*.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rpm toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
+      - name: Check tag matches package version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' devswitch/__init__.py)
+          [ "$tag" = "$pkg" ] || { echo "tag v$tag 与包版本 $pkg 不一致"; exit 1; }
+      - name: Build deb + rpm (amd64 & arm64)
+        run: python3 tools/build_packages.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List release assets
+        run: ls -la dist/
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/DevSwitch-Setup-*.exe
+            dist/*.deb
+            dist/*.rpm
+          generate_release_notes: true

@@ -1,0 +1,9 @@
+* text=auto
+
+# Shell entry points and golden baselines must stay LF on every platform.
+*.sh text eol=lf
+bin/devswitch text eol=lf
+bin/devswitch-gui text eol=lf
+tests/golden/** text eol=lf
+*.desktop text eol=lf
+devswitch/ui/dist/index.html text eol=lf

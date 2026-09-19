@@ -1,0 +1,5 @@
+# >>> devswitch >>>
+if [ -f "/home/tester/.config/devswitch/env.sh" ]; then
+  . "/home/tester/.config/devswitch/env.sh"
+fi
+# <<< devswitch <<<

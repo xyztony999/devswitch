@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=DevSwitch
+Name[zh_CN]=DevSwitch 版本切换
+Comment=Manage and switch Node.js / npm / Java versions
+Comment[zh_CN]=管理并切换 Node.js、npm、Java 版本
+Exec=devswitch-gui
+Icon=devswitch
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true
+Keywords=node;npm;java;jdk;nvm;sdkman;devswitch;

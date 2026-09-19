@@ -1,0 +1,10 @@
+#!/bin/sh
+# DevSwitch shim — pnpm
+ENVFILE="/home/tester/.config/devswitch/current.env"
+[ -f "$ENVFILE" ] && . "$ENVFILE"
+if [ -n "$DEVSWITCH_NODE_HOME" ] && [ -x "$DEVSWITCH_NODE_HOME/bin/pnpm" ]; then
+  PATH="$DEVSWITCH_NODE_HOME/bin:$PATH"
+  exec "$DEVSWITCH_NODE_HOME/bin/pnpm" "$@"
+fi
+echo "DevSwitch: 当前 Node 没有 pnpm。用这套 Node 执行 npm i -g 安装，或切到装过它的版本。" >&2
+exit 127

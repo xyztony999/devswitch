@@ -1,0 +1,9 @@
+#!/bin/sh
+# DevSwitch shim — node
+ENVFILE="/home/tester/.config/devswitch/current.env"
+[ -f "$ENVFILE" ] && . "$ENVFILE"
+if [ -n "$DEVSWITCH_NODE_HOME" ] && [ -x "$DEVSWITCH_NODE_HOME/bin/node" ]; then
+  exec "$DEVSWITCH_NODE_HOME/bin/node" "$@"
+fi
+echo "DevSwitch: 未配置 Node，或当前版本没有 node。运行 devswitch list / use" >&2
+exit 127
