@@ -14,7 +14,7 @@
 #if ArchMode == "arm64"
 #define ArchSuffix "-arm64"
 #else
-#define ArchSuffix ""
+#define ArchSuffix "-x64"
 #endif
 
 [Setup]
