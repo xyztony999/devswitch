@@ -3,6 +3,8 @@
 ; 编译：  ISCC devswitch.iss
 ; 版本：  CI 可用 /DAppVersion=x.y.z 覆盖；本地默认取下行（与 __init__.py 同步维护）
 ; 架构：  /DArchMode=arm64 产出原生 ARM64 安装器（默认 x64compatible）
+; 命名：  产物统一小写 devswitch 前缀（与 deb/rpm 一致）；
+;         向导与控制面板显示名仍为 DevSwitch（AppName）
 ; 语言：  installer\ChineseSimplified.isl 存在时提供简中向导（CI 会自动下载），
 ;         缺失时使用英文向导
 #ifndef AppVersion
@@ -36,7 +38,7 @@ UninstallDisplayName=DevSwitch
 UninstallDisplayIcon={app}\devswitch.ico
 SetupIconFile=share\icons\devswitch.ico
 OutputDir=dist
-OutputBaseFilename=DevSwitch-Setup-{#AppVersion}{#ArchSuffix}
+OutputBaseFilename=devswitch-setup-{#AppVersion}{#ArchSuffix}
 ; arm64：生成原生 ARM64 安装器；x64compatible：x64 安装器（ARM64 设备可模拟运行）
 ArchitecturesInstallIn64BitMode={#ArchMode}
 Compression=lzma2

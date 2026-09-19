@@ -31,7 +31,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-setup
-          path: dist/DevSwitch-Setup-*.exe
+          path: dist/devswitch-setup-*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -70,7 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/DevSwitch-Setup-*.exe
+            dist/devswitch-setup-*.exe
             dist/*.deb
             dist/*.rpm
           generate_release_notes: true
@@ -79,8 +79,8 @@ jobs:
 
             | 文件 | 适用平台 |
             |---|---|
-            | `DevSwitch-Setup-*-x64.exe` | Windows（Intel / AMD 及大多数设备） |
-            | `DevSwitch-Setup-*-arm64.exe` | Windows on ARM（骁龙等 ARM 笔记本） |
+            | `devswitch-setup-*-x64.exe` | Windows（Intel / AMD 及大多数设备） |
+            | `devswitch-setup-*-arm64.exe` | Windows on ARM（骁龙等 ARM 笔记本） |
             | `*_amd64.deb` | Debian 系 x64（`uname -m` 显示 `x86_64`） |
             | `*_arm64.deb` | Debian 系 ARM64（`uname -m` 显示 `aarch64`） |
             | `*.x86_64.rpm` | Fedora / RHEL 系 x64 |

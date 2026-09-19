@@ -52,7 +52,7 @@ sudo dnf install ./devswitch-1.1.0-1.x86_64.rpm  # arm64 机器换成 _aarch64.r
 
 也可以克隆仓库用脚本装：`./install.sh`。
 
-**Windows**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载 `DevSwitch-Setup-x.x.x-x64.exe`（Intel/AMD 及大多数设备；ARM 设备如骁龙笔记本用 `-arm64` 后缀，或直接运行 x64 包走兼容层），双击安装。前提是已装 [Python 3.8+](https://www.python.org/downloads/)（勾选 py launcher），安装向导会自动检测并引导。
+**Windows**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载 `devswitch-setup-x.x.x-x64.exe`（Intel/AMD 及大多数设备；ARM 设备如骁龙笔记本用 `-arm64` 后缀，或直接运行 x64 包走兼容层），双击安装。前提是已装 [Python 3.8+](https://www.python.org/downloads/)（勾选 py launcher），安装向导会自动检测并引导。
 
 - 标准安装向导，全程**用户级、无需管理员**
 - 自动注册到「设置 → 应用 / 控制面板 → 程序和功能」，可从那里**一键卸载**（自带独立卸载程序）
