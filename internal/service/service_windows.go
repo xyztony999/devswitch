@@ -10,11 +10,13 @@ import (
 )
 
 // writeUserEnvPlatform 写 HKCU\Environment：shim 目录置顶 + 各 *_HOME。
+// 用 ApplyUserEnv 合并成单次广播，避免逐次写入逐次等待。
 func writeUserEnvPlatform(state *models.State) {
-	winenv.EnsurePathEntry(paths.LocalBin(), true)
+	homes := map[string]string{}
 	for tool, varName := range models.ToolHomeVars {
 		if r := state.CurrentRuntime(tool); r != nil {
-			winenv.SetValue(varName, apply.WinHome(r.Home))
+			homes[varName] = apply.WinHome(r.Home)
 		}
 	}
+	winenv.ApplyUserEnv(paths.LocalBin(), true, homes)
 }

@@ -416,3 +416,15 @@ code {
   color: var(--text-dim);
   line-height: 1.55;
 }
+
+/* 新版本横幅 */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(24, 160, 88, 0.4);
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, rgba(24, 160, 88, 0.12), transparent 70%);
+}

@@ -16,6 +16,9 @@ const (
 	hwndBroadcast  = uintptr(0xFFFF)
 	wmSettingChg   = 0x001A
 	smtoAbortIfHub = 0x0002
+	// 广播是尽力而为的通知：超时给短一些，避免多次注册表写入时
+	// 调用方（尤其 GUI）被逐次拖住。
+	broadcastTimeoutMs = 800
 )
 
 var (
@@ -39,6 +42,14 @@ func GetUserValue(name string) (string, bool) {
 
 // SetValue 写用户环境变量；含 % 的值用 REG_EXPAND_SZ 保持可展开语义。
 func SetValue(name, value string) bool {
+	if !setValueRaw(name, value) {
+		return false
+	}
+	BroadcastChange()
+	return true
+}
+
+func setValueRaw(name, value string) bool {
 	key, err := registry.OpenKey(registry.CURRENT_USER, envValue, registry.SET_VALUE)
 	if err != nil {
 		return false
@@ -57,11 +68,7 @@ func SetValue(name, value string) bool {
 	} else {
 		setErr = key.SetStringValue(name, value)
 	}
-	if setErr != nil {
-		return false
-	}
-	BroadcastChange()
-	return true
+	return setErr == nil
 }
 
 // DeleteValue 删除用户环境变量（不存在也返回 true）。
@@ -81,7 +88,7 @@ func BroadcastChange() {
 	env, _ := syscall.UTF16PtrFromString("Environment")
 	procSendMessageTime.Call(
 		hwndBroadcast, wmSettingChg, 0,
-		uintptr(unsafe.Pointer(env)), smtoAbortIfHub, 5000, 0,
+		uintptr(unsafe.Pointer(env)), smtoAbortIfHub, broadcastTimeoutMs, 0,
 	)
 }
 
@@ -171,6 +178,14 @@ func expandEntry(entry string) string {
 
 // EnsurePathEntry 把 target 放进用户 PATH（first=true 时置顶），返回是否修改。
 func EnsurePathEntry(target string, first bool) bool {
+	changed := ensurePathEntryRaw(target, first)
+	if changed {
+		BroadcastChange()
+	}
+	return changed
+}
+
+func ensurePathEntryRaw(target string, first bool) bool {
 	entries := UserPathEntries()
 	if len(entries) > 0 && sameEntry(entries[0], target) {
 		return false // 已在首位，无需修改
@@ -193,11 +208,17 @@ func EnsurePathEntry(target string, first bool) bool {
 		return false
 	}
 	defer key.Close()
-	if err := key.SetStringValue("Path", joinSemi(next)); err != nil {
-		return false
+	return key.SetStringValue("Path", joinSemi(next)) == nil
+}
+
+// ApplyUserEnv 一次性写入用户 PATH 项与多个环境变量，末尾只广播一次——
+// 每次写入各广播会把调用方拖住多倍广播超时。
+func ApplyUserEnv(pathTarget string, pathFirst bool, values map[string]string) {
+	ensurePathEntryRaw(pathTarget, pathFirst)
+	for name, value := range values {
+		setValueRaw(name, value)
 	}
 	BroadcastChange()
-	return true
 }
 
 // RemovePathEntry 从用户 PATH 移除 target。

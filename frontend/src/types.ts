@@ -28,4 +28,7 @@ export interface AppState {
   selected: string
   flash?: { text: string; kind?: string } | null
   paths: { localBin?: string; config?: string }
+  latest?: string
+  updateAvailable?: boolean
+  updateChecking?: boolean
 }

@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/xyztony999/devswitch/internal/downloader"
 	"github.com/xyztony999/devswitch/internal/models"
 	"github.com/xyztony999/devswitch/internal/paths"
 	"github.com/xyztony999/devswitch/internal/service"
@@ -75,6 +77,19 @@ type IO interface {
 	IsVisible() bool                           // 主窗口是否可见
 	RunAsync(fn func())                        // 后台执行（下载等耗时操作）
 	Dispatch(fn func())                        // 调度回 UI 线程
+	OpenURL(url string) error                  // 用系统默认浏览器打开（仅白名单 URL）
+}
+
+// 更新检查只允许打开项目自身的页面。
+func isAllowedURL(url string) bool {
+	for _, prefix := range []string{
+		"https://github.com/xyztony999/devswitch/",
+	} {
+		if strings.HasPrefix(url, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Controller 是唯一行为大脑：页签、选择、下载状态与消息分发。
@@ -84,6 +99,9 @@ type Controller struct {
 	Selected   string
 	Installing bool
 	ready      bool
+	latest     string // 最新发布版本（空 = 尚未检查）
+	checking   bool
+	fixing     bool
 }
 
 func NewController(io IO) *Controller {
@@ -93,6 +111,11 @@ func NewController(io IO) *Controller {
 func (c *Controller) Ready() {
 	c.ready = true
 	c.Push()
+	// 启动后延迟静默检查更新（只读，失败不打扰）。
+	c.io.RunAsync(func() {
+		time.Sleep(3 * time.Second)
+		c.checkUpdate(false)
+	})
 }
 
 func (c *Controller) Push(flash ...map[string]interface{}) {
@@ -159,6 +182,9 @@ func (c *Controller) BuildState(flash map[string]interface{}, extraFlash ...map[
 		"issues":     issueList,
 		"selected":   selected,
 		"flash":      flashValue,
+		"latest":     c.latest,
+		"updateAvailable": c.latest != "" && c.latest != models.AppVersion,
+		"updateChecking":  c.checking,
 		"paths": map[string]interface{}{
 			"localBin": binDir(), "config": configDir(),
 		},
@@ -203,12 +229,41 @@ func (c *Controller) HandleMessage(data map[string]interface{}) {
 	case "import":
 		c.doImport()
 	case "fix":
-		lines := service.DoctorFix()
-		text := "没有需要修复的项。"
-		if len(lines) > 0 {
-			text = strings.Join(lines, "；")
+		if c.fixing {
+			return
 		}
-		c.Push(map[string]interface{}{"text": text, "kind": "ok"})
+		c.fixing = true
+		c.Push(map[string]interface{}{"text": "正在修复……", "kind": "ok"})
+		// 修复含多次注册表写入与环境广播（同步等待各窗口响应），
+		// 在 UI 线程执行会把窗口卡住十几秒，状态迟迟不刷新；放后台。
+		c.io.RunAsync(func() {
+			lines := service.DoctorFix()
+			text := "没有需要修复的项。"
+			if len(lines) > 0 {
+				text = strings.Join(lines, "；")
+			}
+			finalText := text
+			c.io.Dispatch(func() {
+				c.fixing = false
+				c.Push(map[string]interface{}{"text": finalText, "kind": "ok"})
+			})
+		})
+	case "check-update":
+		if c.checking {
+			return
+		}
+		c.checking = true
+		c.Push()
+		c.io.RunAsync(func() { c.checkUpdate(true) })
+	case "open-url":
+		url, _ := data["url"].(string)
+		if !isAllowedURL(url) {
+			c.Push(map[string]interface{}{"text": "不允许打开这个链接。", "kind": "error"})
+			return
+		}
+		if err := c.io.OpenURL(url); err != nil {
+			c.Push(map[string]interface{}{"text": "打开浏览器失败，请手动访问：" + url, "kind": "error"})
+		}
 	}
 }
 
@@ -344,4 +399,35 @@ func CurrentHome(tool models.Tool) string {
 		return r.Home
 	}
 	return ""
+}
+
+// ReleasePageURL 是更新提示指向的发布页。
+const ReleasePageURL = "https://github.com/xyztony999/devswitch/releases/latest"
+
+// checkUpdate 查询 GitHub 最新发布并推回 UI。
+// manual=true 时结果带 flash 文案；静默检查只在发现新版本时提示。
+func (c *Controller) checkUpdate(manual bool) {
+	latest, err := downloader.LatestReleaseVersion()
+	c.io.Dispatch(func() {
+		c.checking = false
+		if err != nil {
+			if manual {
+				c.Push(map[string]interface{}{"text": "检查更新失败：" + err.Error(), "kind": "error"})
+			}
+			return
+		}
+		c.latest = latest
+		if latest == models.AppVersion {
+			if manual {
+				c.Push(map[string]interface{}{
+					"text": fmt.Sprintf("已是最新版本（%s）。", latest), "kind": "ok",
+				})
+			}
+			return
+		}
+		c.Push(map[string]interface{}{
+			"text": fmt.Sprintf("发现新版本：%s（当前 %s）。", latest, models.AppVersion),
+			"kind": "ok",
+		})
+	})
 }

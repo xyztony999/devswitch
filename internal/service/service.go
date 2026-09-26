@@ -98,6 +98,27 @@ func applyAll(state *models.State) {
 	_, _ = apply.WriteShims(state)
 	_ = apply.WriteLaunchers()
 	applyHooks(state)
+	ensureProcessPath()
+}
+
+// ensureProcessPath 把 shim 目录前置到本进程 PATH：
+// 注册表/钩子只对新进程生效，正在运行的进程（尤其 GUI 里点「一键修复」后）
+// 不会自动获得，doctor 的会话 PATH 检查会一直报旧状态。这里同步进程内环境。
+func ensureProcessPath() {
+	localBin := paths.LocalBin()
+	parts := filepath.SplitList(os.Getenv("PATH"))
+	for i, p := range parts {
+		if normFold(p) == normFold(localBin) {
+			if i == 0 {
+				return
+			}
+			rest := append(append([]string{}, parts[:i]...), parts[i+1:]...)
+			next := append([]string{localBin}, rest...)
+			os.Setenv("PATH", strings.Join(next, string(os.PathListSeparator)))
+			return
+		}
+	}
+	os.Setenv("PATH", localBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 func applyHooks(state *models.State) {

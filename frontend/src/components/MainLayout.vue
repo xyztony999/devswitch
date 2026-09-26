@@ -9,6 +9,7 @@ import type { Runtime } from '../types'
 const message = useMessage()
 const dlVersion = ref('')
 const dlMirror = ref('official')
+const RELEASE_URL = 'https://github.com/xyztony999/devswitch/releases/latest'
 const mirrorOptions = [
   { label: '官方源', value: 'official' },
   { label: 'npmmirror', value: 'npmmirror' },
@@ -142,6 +143,7 @@ function useHome(home: string) {
           <div class="nav-item-text">
             <div class="nav-item-name">关于</div>
           </div>
+          <span v-if="store.updateAvailable" class="nav-badge ok">NEW</span>
         </div>
 
         <div class="nav-spacer"></div>
@@ -167,6 +169,42 @@ function useHome(home: string) {
               </div>
             </div>
           </div>
+
+          <!-- 新版本横幅（更新检查为只读查询，不上传任何数据） -->
+          <div v-if="store.updateAvailable" class="update-banner">
+            <div style="flex: 1; min-width: 0">
+              <div style="font-weight: 700; margin-bottom: 2px">
+                发现新版本 v{{ store.latest }}
+              </div>
+              <div class="issue-msg">当前 v{{ store.version }} · 建议下载新版安装包覆盖安装，版本选择与运行时数据不受影响</div>
+            </div>
+            <NButton size="small" type="primary" @click="send({ op: 'open-url', url: RELEASE_URL })">
+              打开发布页
+            </NButton>
+          </div>
+
+          <div class="ver-card" style="max-width: 560px">
+            <div class="ver-card-meta" style="flex-direction: row; justify-content: space-between">
+              <span>当前版本 <code>v{{ store.version || '—' }}</code></span>
+              <span>
+                最新版本
+                <code v-if="store.latest">v{{ store.latest }}</code>
+                <code v-else>未检查</code>
+                <template v-if="store.latest && !store.updateAvailable">（已是最新）</template>
+              </span>
+            </div>
+            <div class="ver-card-actions">
+              <NButton
+                size="small"
+                secondary
+                :loading="store.updateChecking"
+                @click="send({ op: 'check-update' })"
+              >
+                检查更新
+              </NButton>
+            </div>
+          </div>
+
           <div class="ver-card" style="max-width: 560px">
             <div class="issue-msg" style="line-height: 1.8">
               扫描本机已有的运行时，收拢到一张列表里，一键切换；也可以直接下载安装指定大版本。

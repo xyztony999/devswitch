@@ -42,6 +42,9 @@ func (io *webviewIO) IsVisible() bool { return io.w != nil }
 
 func (io *webviewIO) RunAsync(fn func()) { go fn() }
 
+// OpenURL 打开白名单内的项目页面（系统默认浏览器）。
+func (io *webviewIO) OpenURL(url string) error { return openURL(url) }
+
 func (io *webviewIO) Dispatch(fn func()) {
 	if io.w != nil {
 		io.w.Dispatch(fn)

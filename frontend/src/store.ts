@@ -10,5 +10,8 @@ export const store = reactive<AppState>({
   issues: [],
   selected: '',
   flash: null,
-  paths: {}
+  paths: {},
+  latest: '',
+  updateAvailable: false,
+  updateChecking: false
 })
