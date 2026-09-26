@@ -4,7 +4,6 @@ package gui
 
 import (
 	"encoding/json"
-	"errors"
 
 	webview "github.com/webview/webview_go"
 
@@ -33,9 +32,10 @@ func (io *webviewIO) Notify(title, body string) {
 	setTooltipSafe(title + " — " + body)
 }
 
-// ChooseFolder：webview_go 无文件夹对话框 API；提示走 CLI 导入。
+// ChooseFolder：系统文件夹选择对话框（Windows IFileOpenDialog / Linux zenity）。
+// 取消时返回空串（静默），失败返回带指引的错误。
 func (io *webviewIO) ChooseFolder(title string) (string, error) {
-	return "", errors.New("图形导入暂不可用，请在命令行执行：devswitch import <工具> <目录>")
+	return chooseFolderNative(title)
 }
 
 func (io *webviewIO) IsVisible() bool { return io.w != nil }

@@ -21,7 +21,7 @@ var Tools = []Tool{Node, Java, Maven, Gradle}
 
 // AppVersion 全局唯一版本号来源，发布构建用
 // -ldflags "-X .../internal/models.AppVersion=x.y.z" 注入。
-var AppVersion = "2.0.5-dev"
+var AppVersion = "2.0.6-dev"
 
 var ToolLabels = map[Tool]string{
 	Node: "Node.js", Java: "Java", Maven: "Maven", Gradle: "Gradle",
