@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/xyztony999/devswitch/internal/downloader"
+	"github.com/xyztony999/devswitch/internal/gui"
 	"github.com/xyztony999/devswitch/internal/models"
 	"github.com/xyztony999/devswitch/internal/service"
 )
@@ -60,6 +61,8 @@ func Main(args []string) int {
 		return cmdWhich(rest)
 	case "update":
 		return cmdUpdate()
+	case "gui":
+		return gui.Run()
 	default:
 		fmt.Fprintf(os.Stderr, "未知命令：%s\n%s\n", cmd, usage)
 		return 2

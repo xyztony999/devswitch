@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node -e \"require('fs').cpSync('../devswitch/ui/dist', '../internal/gui/ui/dist', {recursive: true})\"",
     "preview": "vite preview"
   },
   "dependencies": {
