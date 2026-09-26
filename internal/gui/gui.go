@@ -158,6 +158,7 @@ func openWindow() {
 
 		w.SetTitle("DevSwitch")
 		w.SetSize(1100, 720, webview.HintNone)
+		setWindowIcon("DevSwitch")
 		_ = w.Bind("__nativeSend", func(msg string) {
 			controller.HandleMessage(parseMessage(msg))
 		})
