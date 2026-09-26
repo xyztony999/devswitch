@@ -8,7 +8,7 @@
 ; 语言：  installer\ChineseSimplified.isl 存在时提供简中向导（CI 会自动下载），
 ;         缺失时使用英文向导
 #ifndef AppVersion
-#define AppVersion "1.1.0"
+#define AppVersion "1.2.0"
 #endif
 #ifndef ArchMode
 #define ArchMode "x64compatible"

@@ -151,6 +151,15 @@ class WinApp(object):
         except Exception:
             return True
 
+    def run_async(self, fn):
+        import threading
+
+        threading.Thread(target=fn, daemon=True).start()
+
+    def dispatch(self, fn):
+        # pywebview 的 evaluate_js 可跨线程调用，直接执行即可
+        fn()
+
     def choose_folder(self, title):
         # type: (str) -> Optional[str]
         import webview

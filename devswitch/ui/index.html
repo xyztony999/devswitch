@@ -23,8 +23,28 @@
             </span>
             Java
           </button>
-          <button class="tab" data-page="maven">Maven</button>
-          <button class="tab" data-page="gradle">Gradle</button>
+          <button class="tab" data-page="maven">
+            <span class="brand-logo" aria-hidden="true">
+              <svg viewBox="0 0 32 32"><path fill="#C71A36" d="M5 27 16 5h4.2L11 27z"/><path fill="#8E1422" d="M12.5 27 23.5 5H28L17.5 27z"/></svg>
+            </span>
+            Maven
+          </button>
+          <button class="tab" data-page="gradle">
+            <span class="brand-logo" aria-hidden="true">
+              <svg viewBox="0 0 32 32"><path fill="#1BA6C4" d="M7.5 17c0-6 4.2-9.2 9.3-9.2 5 0 8.7 3.2 8.7 8.2v3.5h-5.4v-2.7c0-1.8-1-2.7-2.7-2.7s-2.7.9-2.7 2.7v6.1l-4.3 5.3H6.6l4.3-5.6c-2.2-1.4-3.4-3.2-3.4-5.6z"/><path fill="none" stroke="#1BA6C4" stroke-width="2.6" stroke-linecap="round" d="M21.3 19.9c4.3 0 5.3 1.8 5.3 3.6 0 1.6-.9 2.6-2.3 2.6"/><circle cx="18.6" cy="13.4" r="1.3" fill="#fff"/></svg>
+            </span>
+            Gradle
+          </button>
+          <span class="spacer"></span>
+          <span class="dl-bar" id="dl-bar">
+            <input class="dl-input" id="dl-version" placeholder="大版本号，如 22" />
+            <select class="dl-select" id="dl-mirror">
+              <option value="official">官方源</option>
+              <option value="npmmirror">npmmirror</option>
+              <option value="tuna">清华源</option>
+            </select>
+            <button class="btn" id="dl-btn">下载</button>
+          </span>
         </div>
         <div class="current-wrap">
           <span class="dim">当前激活：</span>

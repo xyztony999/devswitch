@@ -97,6 +97,16 @@
     document.getElementById("btn-import").hidden = state.page === "doctor";
     var doctorBtn = document.getElementById("btn-doctor");
     if (doctorBtn) doctorBtn.classList.toggle("active", state.page === "doctor");
+    var dlBar = document.getElementById("dl-bar");
+    if (dlBar) {
+      dlBar.hidden = state.page === "doctor";
+      var busy = !!state.installing;
+      document.getElementById("dl-version").disabled = busy;
+      document.getElementById("dl-mirror").disabled = busy;
+      var dlBtn = document.getElementById("dl-btn");
+      dlBtn.disabled = busy;
+      dlBtn.textContent = busy ? "下载中…" : "下载";
+    }
   }
 
   function renderSider() {
@@ -259,6 +269,19 @@
   document.getElementById("tabs").addEventListener("click", function (ev) {
     var tab = ev.target.closest("[data-page]");
     if (tab) send({ op: "page", page: tab.getAttribute("data-page") });
+  });
+
+  document.getElementById("dl-btn").addEventListener("click", function () {
+    var version = document.getElementById("dl-version").value.trim();
+    var mirror = document.getElementById("dl-mirror").value;
+    if (!version) {
+      toast("请输入大版本号，例如 22", "error");
+      return;
+    }
+    send({ op: "install", version: version, mirror: mirror });
+  });
+  document.getElementById("dl-version").addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter") document.getElementById("dl-btn").click();
   });
 
   document.getElementById("btn-scan").addEventListener("click", function () {

@@ -358,7 +358,7 @@ def build_parser():
         "install",
         help="下载并安装一个运行时，例如：devswitch install node 22",
     )
-    p_install.add_argument("tool", choices=("node", "java"), help="node 或 java")
+    p_install.add_argument("tool", choices=("node", "java", "maven", "gradle"), help="node / java / maven / gradle")
     p_install.add_argument("version", help="大版本号，如 22 / 17（自动取该系列最新）")
     p_install.add_argument(
         "--mirror", choices=("official", "npmmirror", "tuna"),

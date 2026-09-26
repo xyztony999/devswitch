@@ -4,12 +4,14 @@ import {
   NButton,
   NCard,
   NEmpty,
+  NInput,
   NLayout,
   NLayoutContent,
   NLayoutFooter,
   NLayoutHeader,
   NLayoutSider,
   NModal,
+  NSelect,
   NSpace,
   NTabPane,
   NTabs,
@@ -24,6 +26,22 @@ import type { Runtime } from '../types'
 
 const message = useMessage()
 const showAbout = ref(false)
+const dlVersion = ref('')
+const dlMirror = ref('official')
+const mirrorOptions = [
+  { label: '官方源', value: 'official' },
+  { label: 'npmmirror', value: 'npmmirror' },
+  { label: '清华源', value: 'tuna' }
+]
+
+function download() {
+  const version = dlVersion.value.trim()
+  if (!version) {
+    message.warning('请输入大版本号，例如 22 或 17')
+    return
+  }
+  send({ op: 'install', version, mirror: dlMirror.value })
+}
 
 const TOOL_LABELS: Record<string, string> = {
   node: 'Node.js',
@@ -83,83 +101,107 @@ function useHome(home: string) {
   <NLayout style="height: 100vh" position="absolute">
     <NLayoutHeader
       bordered
-      style="height: 56px; padding: 0 16px; display: flex; align-items: center"
+      style="height: 52px; padding: 0 16px; display: flex; align-items: center; gap: 12px"
     >
-      <div style="display: flex; width: 100%; align-items: center; gap: 16px">
-        <NText strong style="font-size: 16px">DevSwitch</NText>
-        <NTabs
-          type="segment"
+      <NText strong style="font-size: 16px; white-space: nowrap">DevSwitch</NText>
+
+      <div style="flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden">
+        <NText depth="3" style="white-space: nowrap">当前激活：</NText>
+        <NTag
+          v-if="store.page === 'doctor'"
+          :type="store.issues.length ? 'warning' : 'success'"
           size="small"
-          :value="store.page === 'doctor' ? undefined : store.page"
-          style="max-width: 260px"
-          @update:value="setPage"
+          round
         >
-          <NTabPane name="node">
-            <template #tab>
-              <span style="display: inline-flex; align-items: center; gap: 6px">
-                <BrandLogo kind="node" />
-                Node.js
-              </span>
-            </template>
-          </NTabPane>
-          <NTabPane name="java">
-            <template #tab>
-              <span style="display: inline-flex; align-items: center; gap: 6px">
-                <BrandLogo kind="java" />
-                Java
-              </span>
-            </template>
-          </NTabPane>
-          <NTabPane name="maven">
-            <template #tab>
-              <span style="display: inline-flex; align-items: center; gap: 6px">
-                <BrandLogo kind="java" />
-                Maven
-              </span>
-            </template>
-          </NTabPane>
-          <NTabPane name="gradle">
-            <template #tab>
-              <span style="display: inline-flex; align-items: center; gap: 6px">
-                <BrandLogo kind="java" />
-                Gradle
-              </span>
-            </template>
-          </NTabPane>
-        </NTabs>
-
-        <div style="flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0">
-          <NText depth="3">当前激活：</NText>
-          <NTag
-            v-if="store.page === 'doctor'"
-            :type="store.issues.length ? 'warning' : 'success'"
-            size="small"
-            round
-          >
-            {{ store.issues.length ? store.issues.length + ' 项' : '正常' }}
+          {{ store.issues.length ? store.issues.length + ' 项' : '正常' }}
+        </NTag>
+        <template v-else>
+          <NTag v-for="tool in ['node', 'java', 'maven', 'gradle']" :key="tool" size="small" round
+                :type="store.current[tool] ? 'success' : 'default'">
+            {{ tool }} {{ store.current[tool]?.version || '—' }}
           </NTag>
-          <NTag v-else-if="current" type="success" size="small" round>{{ current.version }}</NTag>
-          <NTag v-else type="warning" size="small" round>未选择</NTag>
-        </div>
-
-        <NSpace>
-          <NButton size="small" @click="send({ op: 'scan' })">重新扫描</NButton>
-          <NButton v-if="store.page !== 'doctor'" size="small" @click="send({ op: 'import' })">
-            导入
-          </NButton>
-          <NButton
-            size="small"
-            :type="store.page === 'doctor' ? 'primary' : 'default'"
-            @click="setPage('doctor')"
-          >
-            诊断
-          </NButton>
-          <NButton size="small" quaternary @click="showAbout = true">关于</NButton>
-        </NSpace>
+        </template>
       </div>
+
+      <NSpace :size="6" :wrap="false">
+        <NButton size="small" @click="send({ op: 'scan' })">重新扫描</NButton>
+        <NButton v-if="store.page !== 'doctor'" size="small" @click="send({ op: 'import' })">
+          导入
+        </NButton>
+        <NButton
+          size="small"
+          :type="store.page === 'doctor' ? 'primary' : 'default'"
+          @click="setPage('doctor')"
+        >
+          诊断
+        </NButton>
+        <NButton size="small" quaternary @click="showAbout = true">关于</NButton>
+      </NSpace>
     </NLayoutHeader>
 
-    <NLayout has-sider position="absolute" style="top: 56px; bottom: 36px">
+    <div
+      v-if="store.page !== 'doctor'"
+      class="toolbar"
+      style="border-bottom: 1px solid var(--n-border-color, #efeff5); display: flex; align-items: center; padding: 6px 16px; gap: 12px"
+    >
+      <NTabs
+        type="segment"
+        size="small"
+        :value="store.page"
+        style="flex: 0 0 auto"
+        @update:value="setPage"
+      >
+        <NTabPane name="node">
+          <template #tab>
+            <span class="tab-label"><BrandLogo kind="node" />Node.js</span>
+          </template>
+        </NTabPane>
+        <NTabPane name="java">
+          <template #tab>
+            <span class="tab-label"><BrandLogo kind="java" />Java</span>
+          </template>
+        </NTabPane>
+        <NTabPane name="maven">
+          <template #tab>
+            <span class="tab-label"><BrandLogo kind="maven" />Maven</span>
+          </template>
+        </NTabPane>
+        <NTabPane name="gradle">
+          <template #tab>
+            <span class="tab-label"><BrandLogo kind="gradle" />Gradle</span>
+          </template>
+        </NTabPane>
+      </NTabs>
+
+      <div style="flex: 1"></div>
+
+      <div class="dl-bar">
+        <NInput
+          v-model:value="dlVersion"
+          size="small"
+          placeholder="大版本号，如 22"
+          style="width: 130px"
+          :disabled="store.installing"
+          @keyup.enter="download"
+        />
+        <NSelect
+          v-model:value="dlMirror"
+          size="small"
+          :options="mirrorOptions"
+          style="width: 118px"
+          :disabled="store.installing"
+        />
+        <NButton size="small" type="primary" ghost :loading="store.installing" @click="download">
+          下载{{ TOOL_LABELS[store.page] || '' }}
+        </NButton>
+      </div>
+    </div>
+
+    <NLayout
+      has-sider
+      position="absolute"
+      :style="{ top: store.page === 'doctor' ? '52px' : '96px', bottom: '36px' }"
+    >
       <NLayoutSider bordered :width="320" :native-scrollbar="false" content-style="padding: 12px">
         <div style="display: flex; flex-direction: column; gap: 8px">
           <template v-if="store.page === 'doctor'">
@@ -286,3 +328,18 @@ function useHome(home: string) {
     <NText depth="3">v{{ store.version || '1.0.0' }}</NText>
   </NModal>
 </template>
+
+<style scoped>
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.dl-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+</style>

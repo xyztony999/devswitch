@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ kind: 'node' | 'java'; large?: boolean }>()
+defineProps<{ kind: 'node' | 'java' | 'maven' | 'gradle'; large?: boolean }>()
 </script>
 
 <template>
@@ -13,7 +13,7 @@ defineProps<{ kind: 'node' | 'java'; large?: boolean }>()
         d="M14.3 13.2c0-1.3.9-2.1 2.4-2.1 1.1 0 1.9.4 2.4 1.1l-1.2.8c-.3-.4-.6-.6-1.2-.6-.5 0-.8.3-.8.7 0 .4.3.6 1 .8l.8.2c1.4.4 2.1 1.1 2.1 2.3 0 1.4-1.1 2.3-2.7 2.3-1.3 0-2.3-.5-2.8-1.4l1.3-.8c.3.6.8.9 1.5.9.6 0 1-.3 1-.8 0-.4-.3-.6-1-.8l-.8-.2c-1.4-.4-2-1.1-2-2.4z"
       />
     </svg>
-    <svg v-else viewBox="0 0 32 32">
+    <svg v-else-if="kind === 'java'" viewBox="0 0 32 32">
       <path
         fill="none"
         stroke="#E76F00"
@@ -37,6 +37,28 @@ defineProps<{ kind: 'node' | 'java'; large?: boolean }>()
         d="M21.5 15.2h2.2a2.6 2.6 0 1 1 0 5.2h-2.2"
       />
       <rect x="8" y="27" width="14.5" height="1.8" rx=".9" fill="#E76F00" />
+    </svg>
+    <svg v-else-if="kind === 'maven'" viewBox="0 0 32 32">
+      <!-- Apache Maven：斜向双翼（风帆） -->
+      <path fill="#C71A36" d="M5 27 16 5h4.2L11 27z" />
+      <path fill="#8E1422" d="M12.5 27 23.5 5H28L17.5 27z" />
+      <path fill="#E85D75" d="M5 27h7.5L23.5 5h-7.5z" opacity=".35" />
+    </svg>
+    <svg v-else viewBox="0 0 32 32">
+      <!-- Gradle：大象侧影 -->
+      <path
+        fill="#1BA6C4"
+        d="M7.5 17c0-6 4.2-9.2 9.3-9.2 5 0 8.7 3.2 8.7 8.2v3.5h-5.4v-2.7c0-1.8-1-2.7-2.7-2.7s-2.7.9-2.7 2.7v6.1l-4.3 5.3H6.6l4.3-5.6c-2.2-1.4-3.4-3.2-3.4-5.6z"
+      />
+      <path
+        fill="none"
+        stroke="#1BA6C4"
+        stroke-width="2.6"
+        stroke-linecap="round"
+        d="M21.3 19.9c4.3 0 5.3 1.8 5.3 3.6 0 1.6-.9 2.6-2.3 2.6"
+      />
+      <circle cx="18.6" cy="13.4" r="1.3" fill="#fff" />
+      <path fill="none" stroke="#0E7A93" stroke-width="1.2" stroke-linecap="round" d="M11.5 22.5c2.8 1 6.2 1 9-.2" opacity=".5" />
     </svg>
   </span>
 </template>

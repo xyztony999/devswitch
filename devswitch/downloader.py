@@ -37,10 +37,14 @@ ALLOWED_HOSTS = {
     "nodejs.org",
     "registry.npmmirror.com",
     "mirrors.tuna.tsinghua.edu.cn",
+    "mirrors.cloud.tencent.com",
     "api.adoptium.net",
     "api.github.com",
     "github.com",
     "objects.githubusercontent.com",
+    "repo.maven.apache.org",
+    "dlcdn.apache.org",
+    "services.gradle.org",
 }
 
 MIRRORS = {
@@ -337,6 +341,100 @@ def install_java(major, mirror=None):
     return home
 
 
+# --------------------------------------------------------------------------
+# Apache Maven / Gradle
+# --------------------------------------------------------------------------
+
+def install_maven(major, mirror=None):
+    # type: (str, Optional[str]) -> Path
+    import re as _re
+
+    # 版本元数据恒走中央仓库（XML 很小）；下载按镜像选源
+    meta = _http_get(
+        "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/maven-metadata.xml"
+    ).decode("utf-8")
+    versions = _re.findall(r"<version>([\d]+\.[\d]+\.[\d]+)</version>", meta)
+    candidates = [v for v in versions if v.startswith(major + ".")]
+    if not candidates:
+        raise LookupError("没有发现 Maven {} 版本系列".format(major))
+    version = candidates[-1]
+
+    settings = _mirror_settings(mirror)
+    use_mirror = settings["node_dist"] != "https://nodejs.org/dist"
+    base = (
+        "https://mirrors.tuna.tsinghua.edu.cn/apache/maven/maven-3/{v}/binaries"
+        if use_mirror
+        else "https://dlcdn.apache.org/maven/maven-3/{v}/binaries"
+    ).format(v=version)
+    filename = "apache-maven-{}-bin.zip".format(version)
+    print("Apache Maven {}（来源 {}）".format(version, urlparse(base).hostname))
+    archive = _download_with_sidecar_checksum(base + "/" + filename)
+    home = _extract(archive, paths.home())
+    print("已安装到 {}".format(home))
+    return home
+
+
+def install_gradle(major, mirror=None):
+    # type: (str, Optional[str]) -> Path
+    entries = _http_get_json("https://services.gradle.org/versions/all")
+    candidates = [
+        str(entry.get("version") or "")
+        for entry in entries
+        if not entry.get("snapshot")
+        and not entry.get("rcFor")
+        and not entry.get("milestoneFor")
+        and str(entry.get("version") or "").startswith(major + ".")
+    ]
+    if not candidates:
+        raise LookupError("没有发现 Gradle {} 版本系列".format(major))
+    version = candidates[0]  # all 接口按新到旧排列
+
+    settings = _mirror_settings(mirror)
+    use_mirror = settings["node_dist"] != "https://nodejs.org/dist"
+    base = (
+        "https://mirrors.cloud.tencent.com/gradle"
+        if use_mirror
+        else "https://services.gradle.org/distributions"
+    )
+    filename = "gradle-{}-bin.zip".format(version)
+    print("Gradle {}（来源 {}）".format(version, urlparse(base).hostname))
+    archive = _download_with_sidecar_checksum(base + "/" + filename)
+    home = _extract(archive, paths.home())
+    print("已安装到 {}".format(home))
+    return home
+
+
+def _download_with_sidecar_checksum(url):
+    # type: (str) -> Path
+    """下载并按同目录 sidecar 文件（.sha256/.sha512）校验。"""
+    checksum = None
+    algo = "sha256"
+    for suffix, algorithm in ((".sha256", "sha256"), (".sha512", "sha512")):
+        try:
+            text = _http_get(url + suffix, timeout=15).decode("utf-8")
+        except OSError:
+            continue
+        first = text.strip().splitlines()[0].split()[0].strip() if text.strip() else ""
+        if first:
+            checksum, algo = first, algorithm
+            break
+    temp = Path(tempfile.mkdtemp(prefix="ds-download-"))
+    dest = temp / url.rsplit("/", 1)[-1]
+    _http_download(url, dest)
+    if checksum:
+        import hashlib as _hashlib
+
+        digest = _hashlib.new(algo)
+        with dest.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        actual = digest.hexdigest()
+        if actual.lower() != checksum.lower():
+            raise ValueError("checksum 校验失败：{}（期望 {}，实际 {}）".format(dest.name, checksum, actual))
+        print("{} 校验通过".format(algo))
+    return dest
+
+
 def latest_release_version():
     # type: () -> str
     """Read the latest published release tag (read-only update check)."""
@@ -346,17 +444,27 @@ def latest_release_version():
 
 def install_runtime(tool, version, mirror=None):
     # type: (str, str, Optional[str]) -> Tuple[Path, str]
-    """Download a runtime; returns (home, full_version). tool: node | java."""
+    """Download a runtime; returns (home, full_version). tool: node|java|maven|gradle."""
     from . import detect, service
 
-    if tool == "node":
-        home = install_node(version, mirror)
-        runtime = detect.inspect_node(home)
-    elif tool == "java":
-        home = install_java(version, mirror)
-        runtime = detect.inspect_java(home)
-    else:
+    installers = {
+        "node": install_node,
+        "java": install_java,
+        "maven": install_maven,
+        "gradle": install_gradle,
+    }
+    inspectors = {
+        "node": detect.inspect_node,
+        "java": detect.inspect_java,
+        "maven": detect.inspect_maven,
+        "gradle": detect.inspect_gradle,
+    }
+    installer = installers.get(tool)
+    inspector = inspectors.get(tool)
+    if installer is None or inspector is None:
         raise ValueError("暂不支持下载该工具：{}".format(tool))
+    home = installer(version, mirror)
+    runtime = inspector(home)
     if runtime is None:
         raise ValueError("下载完成但未能识别安装目录：{}".format(home))
     service.merge_scan()

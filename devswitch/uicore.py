@@ -65,14 +65,14 @@ def _runtime_dict(runtime):
     return runtime.to_dict() if runtime is not None else None
 
 
-def build_state(page, selected="", flash=None):
+def build_state(page, selected="", flash=None, installing=False):
     state = load_state()
     payload = {
         "page": page,
         "version": __version__,
+        "installing": installing,
         "current": {
-            "node": _runtime_dict(state.current_runtime("node")),
-            "java": _runtime_dict(state.current_runtime("java")),
+            tool: _runtime_dict(state.current_runtime(tool)) for tool in TOOLS
         },
         "runtimes": [item.to_dict() for item in state.for_tool(page)]
         if page in TOOLS
@@ -109,12 +109,19 @@ def state_script(payload):
 class UiController(object):
     """One behavioral brain for every backend: tracks the active page and
     selection, dispatches ops coming from the web UI, and reports back
-    through the `io` callbacks."""
+    through the `io` callbacks.
+
+    io 接口：push / refresh_tray / notify / choose_folder / is_visible，
+    另有两个线程相关方法（下载等耗时操作在线程池执行）：
+      run_async(fn)  在后台线程执行 fn
+      dispatch(fn)   把 fn 调度回 UI 线程执行
+    """
 
     def __init__(self, io):
         self.io = io
         self.page = "node"
         self.selected = ""
+        self.installing = False
         self._ready = False
 
     # -- backend signals ------------------------------------------------
@@ -124,7 +131,7 @@ class UiController(object):
 
     def push(self, flash=None):
         # type: (Optional[Dict]) -> None
-        payload = build_state(self.page, self.selected, flash)
+        payload = build_state(self.page, self.selected, flash, self.installing)
         self.selected = payload.get("selected") or self.selected
         self.io.push(payload)
 
@@ -149,6 +156,8 @@ class UiController(object):
             self.apply_use(self.page, data.get("home") or "")
         elif op == "import":
             self._import()
+        elif op == "install":
+            self._start_install(str(data.get("version") or ""), data.get("mirror") or None)
         elif op == "fix":
             lines = service.doctor_fix()
             self.push(
@@ -189,6 +198,47 @@ class UiController(object):
                 }
             )
         self.io.refresh_tray()
+
+    def _start_install(self, version, mirror):
+        # type: (str, Optional[str]) -> None
+        """GUI 版下载器：后台线程下载安装，完成后回 UI 线程刷新。"""
+        tool = self.page
+        if tool not in TOOLS:
+            return
+        if self.installing:
+            self.push({"text": "已有下载任务进行中，请稍候。", "kind": "error"})
+            return
+        version = version.strip().lstrip("v")
+        if not version or not version.split(".")[0].isdigit():
+            self.push({"text": "请输入大版本号，例如 22 或 17。", "kind": "error"})
+            return
+        self.installing = True
+        self.selected = ""
+        self.push({"text": "开始下载 {} {}（含依赖约几十 MB，视网络可能需要几分钟）……".format(
+            TOOL_LABELS.get(tool, tool), version), "kind": "ok"})
+
+        def work():
+            from . import downloader
+
+            error = None
+            full_version = ""
+            try:
+                _home, full_version = downloader.install_runtime(tool, version, mirror)
+            except (LookupError, ValueError, OSError) as exc:
+                error = str(exc)
+
+            def done():
+                self.installing = False
+                if error:
+                    self.push({"text": "下载失败：{}".format(error), "kind": "error"})
+                else:
+                    self.push({"text": "已安装并切换 {} {}。".format(
+                        TOOL_LABELS.get(tool, tool), full_version), "kind": "ok"})
+                self.io.refresh_tray()
+
+            self.io.dispatch(done)
+
+        self.io.run_async(work)
 
     def _import(self):
         tool = self.page  # 页签名即工具名（node/java/maven/gradle）

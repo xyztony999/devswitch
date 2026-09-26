@@ -437,6 +437,9 @@ def _candidate_buildtool_homes(tool):
             "/usr/share/" + tool + "*",
         ]
     found = _glob_all(patterns)
+    env_home = os.environ.get("MAVEN_HOME") if tool == "maven" else os.environ.get("GRADLE_HOME")
+    if env_home:
+        found.append(Path(env_home))
     for binary in _which_all("mvn" if tool == "maven" else "gradle"):
         if _is_shim(binary):
             continue

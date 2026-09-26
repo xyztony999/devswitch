@@ -59,6 +59,15 @@ class GtkIo(object):
     def is_visible(self):
         return bool(self.window.get_mapped())
 
+    def run_async(self, fn):
+        import threading
+
+        threading.Thread(target=fn, daemon=True).start()
+
+    def dispatch(self, fn):
+        # 后台线程只能通过 idle_add 回到 GTK 主线程
+        GLib.idle_add(fn)
+
     def choose_folder(self, title):
         dialog = Gtk.FileChooserDialog(
             title=title, parent=self.window, action=Gtk.FileChooserAction.SELECT_FOLDER

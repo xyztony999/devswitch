@@ -21,6 +21,7 @@ export interface Issue {
 export interface AppState {
   page: ToolPage
   version: string
+  installing: boolean
   current: Partial<Record<Tool, Runtime | null>>
   runtimes: Runtime[]
   issues: Issue[]

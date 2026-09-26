@@ -73,10 +73,45 @@ code {
 
 .tabs {
   display: flex;
+  align-items: center;
   background: #2a2a2a;
   border-radius: 4px;
   padding: 3px;
   gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dl-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.dl-input {
+  width: 128px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.dl-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.dl-select {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
 }
 
 .tab {
