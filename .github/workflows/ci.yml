@@ -51,6 +51,23 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go build -tags gui -o dist/devswitch-gui-check.exe ./cmd/devswitch
+      - name: Set up llvm-mingw (arm64 交叉 CGO)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          curl -fsSL -o /tmp/llvm-mingw.zip \
+            https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip
+          7z x /tmp/llvm-mingw.zip -o/c/ > /dev/null
+          mv /c/llvm-mingw-* /c/llvm-mingw
+      - name: Build GUI (arm64 交叉)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          GOARCH: arm64
+          CC: C:/llvm-mingw/bin/aarch64-w64-mingw32-clang
+          CXX: C:/llvm-mingw/bin/aarch64-w64-mingw32-clang++
+        run: go build -tags gui -o dist/devswitch-gui-arm64-check.exe ./cmd/devswitch
 
   test:
     strategy:
