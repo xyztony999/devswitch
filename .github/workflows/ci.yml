@@ -10,7 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # GUI 链接 webkit2gtk-4.0：22.04 仓库提供该 -dev 包（24.04 起仅 4.1）
+        os: [ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +24,33 @@ jobs:
         run: go vet ./...
       - name: Test
         run: go test ./internal/... -v
+      - name: Install GUI toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          sudo apt-get update -qq &&
+          sudo apt-get install -y -qq libgtk-3-dev
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
+      - name: Set up MinGW (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+          release: false
+      - name: Add MinGW to PATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo "C:\msys64\ucrt64\bin" >> $GITHUB_PATH
+      - name: Build GUI (CGO, -tags gui)
+        if: runner.os == 'Linux'
+        env:
+          CGO_ENABLED: "1"
+        run: go build -tags gui -o dist/devswitch-gui-check ./cmd/devswitch
+      - name: Build GUI (CGO, -tags gui)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+        run: go build -tags gui -o dist/devswitch-gui-check.exe ./cmd/devswitch
 
   test:
     strategy:
@@ -40,45 +68,6 @@ jobs:
         run: python -m pip install pytest
       - name: Run tests
         run: python -m pytest tests/ -q
-
-  installer:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Inno Setup
-        run: choco install innosetup -y --no-progress
-      - name: Download Chinese wizard translation
-        run: >
-          curl -fsSL -o installer/ChineseSimplified.isl
-          https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl
-        continue-on-error: true  # 缺语言包时回退英文向导
-      - name: Read version
-        id: ver
-        shell: pwsh
-        run: |
-          $v = (Select-String -Path devswitch/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          "version=$v" >> $env:GITHUB_OUTPUT
-      - name: Build setup.exe
-        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} devswitch.iss
-      - uses: actions/upload-artifact@v4
-        with:
-          name: DevSwitch-Setup-${{ steps.ver.outputs.version }}
-          path: dist/devswitch-setup-*.exe
-
-  packages:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install rpm toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
-      - name: Build deb + rpm (amd64 & arm64)
-        run: python3 tools/build_packages.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: |
-            dist/*.deb
-            dist/*.rpm
 
   frontend:
     runs-on: ubuntu-latest

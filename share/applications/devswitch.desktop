@@ -2,11 +2,11 @@
 Type=Application
 Name=DevSwitch
 Name[zh_CN]=DevSwitch 版本切换
-Comment=Manage and switch Node.js / npm / Java versions
-Comment[zh_CN]=管理并切换 Node.js、npm、Java 版本
-Exec=devswitch-gui
+Comment=Manage and switch Node.js / Java / Maven / Gradle versions
+Comment[zh_CN]=管理并切换 Node.js、Java、Maven、Gradle 版本
+Exec=devswitch-gui gui
 Icon=devswitch
 Terminal=false
 Categories=Development;Utility;
 StartupNotify=true
-Keywords=node;npm;java;jdk;nvm;sdkman;devswitch;
+Keywords=node;npm;java;jdk;maven;gradle;nvm;sdkman;devswitch;

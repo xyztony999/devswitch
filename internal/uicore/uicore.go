@@ -16,9 +16,6 @@ import (
 func binDir() string   { return paths.LocalBin() }
 func configDir() string { return paths.ConfigDir() }
 
-// AppVersion 由构建注入。
-var AppVersion = "2.0.0-dev"
-
 // BRIDGE_ADAPTER 注入 webkit 兼容层：前端 bundle 只认
 // window.webkit.messageHandlers.devswitch。宿主提供 pywebview.api（GTK/WebView2
 // 旧宿主）或 __nativeSend（Go webview 宿主）之一即可。
@@ -155,7 +152,7 @@ func (c *Controller) BuildState(flash map[string]interface{}, extraFlash ...map[
 	}
 	return map[string]interface{}{
 		"page":       c.Page,
-		"version":    AppVersion,
+		"version":    models.AppVersion,
 		"installing": c.Installing,
 		"current":    current,
 		"runtimes":   runtimes,

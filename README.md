@@ -4,6 +4,8 @@
 
 DevSwitch 会扫描本机已有的运行时（或直接下载安装），收拢到一张列表里，点一下（或一条命令）完成切换。
 
+> **2.0 起为 Go 单文件实现**：自包含二进制，不再依赖 Python；1.x（Python）的命令与数据格式完全兼容，覆盖安装即可升级，版本选择记录（state.json）原地保留。
+
 ## 它解决什么问题
 
 多套运行时共存时的常见麻烦：
@@ -21,47 +23,32 @@ DevSwitch 的做法：
 
 ## 依赖
 
-命令行只需 Python 3.8+。
-
-- **Linux**：图形界面还需要 GTK 3、WebKit2 和 PyGObject（主流 Debian 系桌面一般已带）：
-  ```bash
-  sudo apt install python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.0 gir1.2-appindicator3-0.1
-  ```
-  托盘图标缺 `gir1.2-appindicator3-0.1` 时仍可开主窗口。
-- **Windows**：图形界面需要 WebView2 运行时（Win10/11 一般已带）与三个 Python 包，安装脚本会自动尝试：
-  ```
-  pip install --user pywebview pystray Pillow
-  ```
-  缺依赖时命令行不受影响。
+无。Windows 图形界面需要 WebView2 运行时（Win10/11 一般已带）；Linux 图形界面需要系统 GTK3 + WebKitGTK（主流发行版仓库都有，deb / rpm 已声明为弱依赖，缺失时命令行不受影响）。
 
 ## 安装
 
-安装到当前用户目录，**不需要管理员**。装完后可以删掉克隆下来的仓库。
+安装到当前用户目录，**不需要管理员**。
 
-**Linux**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载对应格式的包。不确定架构时运行 `uname -m`：显示 `x86_64` 选 amd64/x86_64 包，显示 `aarch64` 选 arm64/aarch64 包（包内容为纯 Python，两种架构安装体验一致）：
-
-```bash
-# Debian 系（Ubuntu / Debian / Deepin / openKylin / UOS 等）
-sudo apt install ./devswitch_1.0.0_amd64.deb     # arm64 机器换成 _arm64.deb
-
-# Fedora / RHEL 系
-sudo dnf install ./devswitch-1.0.0-1.x86_64.rpm  # arm64 机器换成 _aarch64.rpm
-```
-
-系统包只放置程序与 `/usr/bin/devswitch` 入口；**首次运行 `devswitch` 时自动完成用户级初始化**（扫描运行时、写 shim、shell 钩子），无需任何 root 配置步骤。
-
-也可以克隆仓库用脚本装：`./install.sh`。
-
-**Windows**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载 `devswitch-setup-x.x.x-x64.exe`（Intel/AMD 及大多数设备；ARM 设备如骁龙笔记本用 `-arm64` 后缀，或直接运行 x64 包走兼容层），双击安装。前提是已装 [Python 3.8+](https://www.python.org/downloads/)（勾选 py launcher），安装向导会自动检测并引导。
+**Windows**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载安装程序并双击（Intel / AMD 用 `-x64.exe`，骁龙等 ARM 笔记本用 `-arm64.exe`），或者下载便携版 zip 解压即用。
 
 - 标准安装向导，全程**用户级、无需管理员**
 - 自动注册到「设置 → 应用 / 控制面板 → 程序和功能」，可从那里**一键卸载**（自带独立卸载程序）
-- 开始菜单快捷方式 + 可选桌面快捷方式
 - 卸载会清理程序、shim、用户 PATH / JAVA_HOME 与 shell 钩子，仅保留你的版本选择记录（state.json）
+- 开始菜单快捷方式 + 可选桌面快捷方式；`devswitch` 与 `devswitch-gui` 命令同时可用
 
-命令行等价入口：`python -m devswitch install`（配置）/ `devswitch uninstall`（完整卸载）。
+**Linux**：从 [Releases](https://github.com/xyztony999/devswitch/releases) 下载对应格式的包。不确定架构时运行 `uname -m`：显示 `x86_64` 选 amd64/x86_64 包，显示 `aarch64` 选 arm64/aarch64 包：
 
-装完后：开始菜单 / 应用列表搜索 **DevSwitch**，或运行 `devswitch-gui`；直接运行 `devswitch` 也会打开图形界面。升级：重新下载安装包覆盖安装（Linux 再拉一次代码重跑 `./install.sh`）。卸载：控制面板 / `devswitch uninstall` / `./uninstall.sh`。
+```bash
+# Debian 系（Ubuntu / Debian / Deepin / openKylin / UOS 等）
+sudo apt install ./devswitch_2.0.0_amd64.deb     # arm64 机器换成 _arm64.deb
+
+# Fedora / RHEL 系
+sudo dnf install ./devswitch-2.0.0-1.x86_64.rpm  # arm64 机器换成 _aarch64.rpm
+```
+
+包内含两个二进制：`/usr/bin/devswitch`（静态 CLI，零系统依赖）与 `/usr/bin/devswitch-gui`（图形界面）。**首次运行 `devswitch scan` 或图形界面时自动完成用户级初始化**（扫描运行时、写 shim、shell 钩子），无需任何 root 配置步骤。非 deb / rpm 发行版可用便携版 tar.gz。
+
+装完后：Windows 开始菜单 / 应用列表搜索 **DevSwitch**，或任意终端运行 `devswitch`（无参数直接进图形界面）；Linux 运行 `devswitch-gui` 或 `devswitch gui`。升级：重新下载安装包覆盖安装（Linux 重新装包）。卸载：控制面板 / `devswitch cleanup`（清理用户级配置，运行时数据保留）。
 
 ## 命令行
 
@@ -80,20 +67,20 @@ devswitch which node
 devswitch which MAVEN_HOME
 devswitch doctor            # 检查 PATH / 冲突的 shell 配置
 devswitch doctor --fix      # 写入钩子，并注释手写 Node PATH
+devswitch cleanup           # 清理用户级配置（shim / PATH / 环境变量 / 钩子）
 devswitch update            # 检查新版本（只读，不自动升级）
 devswitch completion bash   # shell 补全（bash / zsh / powershell）
 ```
-
-安装 DevSwitch 自身的命令行入口：`python -m devswitch setup`（配置）/ `devswitch uninstall`（完整卸载）。
 
 ## 数据放哪
 
 | 内容 | Linux | Windows |
 |---|---|---|
-| 程序 | `~/.local/share/devswitch` | `%LOCALAPPDATA%\devswitch\app` |
+| 程序 | `/usr/bin`（系统包） | `%LOCALAPPDATA%\devswitch\app` |
 | shim | `~/.local/bin` | `%LOCALAPPDATA%\devswitch\bin` |
 | 状态 / env | `~/.config/devswitch` | `%APPDATA%\devswitch` |
-| 备份 | `~/.config/devswitch/backup/` | `%APPDATA%\devswitch\backup\` |
+| 备份 | `~/.config/devswitch/backup/` | `%APPDATA%\devswitch\backup/` |
+| 下载的运行时 | `~/devswitch-runtimes` | `%USERPROFILE%\devswitch-runtimes` |
 
 ## 注意
 
@@ -104,19 +91,25 @@ devswitch completion bash   # shell 补全（bash / zsh / powershell）
 
 ## 开发
 
-图形界面是 Vue 3 + Naive UI，由 Python 加载 `devswitch/ui/dist`（Linux 走 WebKit2，Windows 走 WebView2，共享同一份界面与消息协议）。改界面后：
+本仓库是 Go 单模块（`cmd/devswitch` + `internal/`），图形界面是 Vue 3 + Naive UI，构建后内嵌进二进制（`internal/gui/ui/dist`）。
 
 ```bash
-cd frontend
-npm install
-npm run build
+# CLI（零 CGO，随处可编）
+go build ./cmd/devswitch
+
+# GUI（需 CGO：Windows 装 MSYS2 的 mingw-w64-ucrt-x86_64-gcc，Linux 装 libgtk-3-dev
+#      + libwebkit2gtk-4.0-dev + libayatana-appindicator3-dev）
+go build -tags gui ./cmd/devswitch
+
+# 改前端后重新构建并同步内嵌产物
+cd frontend && npm install && npm run build
 ```
 
-开发时可直接运行仓库里的 `bin/devswitch` / `bin/devswitch-gui`（Linux）或 `python -m devswitch`（双平台），不必先安装。
+从源码直接试运行：`go run ./cmd/devswitch`（或 `go run -tags gui ./cmd/devswitch gui`）。1.x 的 Python 实现仍在仓库中（`devswitch/`，维护模式），golden 测试（`tests/`）以 Python 侧行为为规格基线，Go 侧生成物逐字节对齐。
 
-打包 Windows 安装程序（需 Inno Setup 6）：`ISCC devswitch.iss`（ARM64 加 `/DArchMode=arm64`），产物在 `dist\`。构建 Linux 包：`python3 tools/build_packages.py`（需 dpkg-deb / rpmbuild）。推送 `v*` 标签后 CI 会自动构建全部六个产物（Windows x64/ARM64 安装器 + deb/rpm × amd64/arm64）并发布到 Release（标签需与 `__init__.py` 版本一致）。
+打包 Windows 安装程序（需 Inno Setup 6）：`ISCC devswitch.iss`（arm64 加 `/DArchMode=arm64 /DBinSource=dist\bin\devswitch-arm64.exe`）。构建 Linux 包：先构建 `dist/bin/devswitch`（静态）与 `dist/bin/devswitch-gui`，再 `python3 tools/build_packages.py --version x.y.z`（需 dpkg-deb / rpmbuild，在本机架构上原生打包）。推送 `v*` 标签后 CI 自动构建全部产物（Windows x64/ARM64 安装器 + 便携 zip、deb/rpm × amd64/arm64、Linux 便携 tar.gz）并发布 Release（标签需与 `internal/models` 的 AppVersion 一致，`-dev` 后缀忽略）。
 
-测试：`python -m pytest tests/`（双平台可跑，Linux 侧有 golden 基线保证生成物不变）。CI：GitHub Actions 在 ubuntu / windows × Python 3.9 / 3.13 矩阵上运行。
+测试：Go 侧 `go test ./internal/...`（golden 字节对齐）；Python 侧 `python -m pytest tests/`。CI：GitHub Actions 在 ubuntu / windows 上运行构建、测试与 GUI 编译检查。
 
 ## 许可
 

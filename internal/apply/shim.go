@@ -205,3 +205,56 @@ func writeOneShim(kind, name string, state *models.State) ([]string, error) {
 	}
 	return append(written, dest), nil
 }
+
+// WriteLaunchers 在 shim 目录生成 devswitch / devswitch-gui 启动器（仅 Windows）。
+// 程序本体装在应用目录（如 %LOCALAPPDATA%\devswitch\app），不在用户 PATH 上，
+// 启动器使命令行随处可用；内容含 ShimMarker，随 cleanup 一并清理，
+// 且会覆盖 1.x（Python 版）升级后残留的失效启动器。
+func WriteLaunchers() error {
+	if !paths.IsWindows {
+		return nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	exeDir := filepath.Dir(exe)
+	binDir := paths.LocalBin()
+	if strings.EqualFold(filepath.Clean(exeDir), filepath.Clean(binDir)) {
+		return nil // 本体已在 PATH 目录（便携解压等场景），无需自引用启动器
+	}
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return err
+	}
+	targets := [][2]string{
+		{"devswitch", ""},        // CLI
+		{"devswitch-gui", "gui"}, // GUI
+	}
+	for _, t := range targets {
+		name, extra := t[0], t[1]
+		args := "%*"
+		shArgs := `"$@"`
+		if extra != "" {
+			args = extra + " %*"
+			shArgs = extra + ` "$@"`
+		}
+		cmd := strings.Join([]string{
+			"@echo off",
+			"rem DevSwitch shim — launcher",
+			`"` + exe + `" ` + args,
+		}, "\r\n") + "\r\n"
+		if err := writeFile(filepath.Join(binDir, name+".cmd"), cmd); err != nil {
+			return err
+		}
+		sh := strings.Join([]string{
+			"#!/bin/sh",
+			"# DevSwitch shim — launcher",
+			`exec ` + quote(ToMsysPath(exe)) + ` ` + shArgs,
+			"",
+		}, "\n")
+		if err := writeExecutable(filepath.Join(binDir, name), sh); err != nil {
+			return err
+		}
+	}
+	return nil
+}

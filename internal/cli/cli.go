@@ -12,9 +12,6 @@ import (
 	"github.com/xyztony999/devswitch/internal/service"
 )
 
-// Version 由构建时注入（-ldflags），默认为开发版本。
-var Version = "2.0.0-dev"
-
 var usage = `用法：devswitch <命令> [参数]
 
 命令：
@@ -28,6 +25,7 @@ var usage = `用法：devswitch <命令> [参数]
   apply <file>            按文件对齐版本（--install-missing）
   which <name>            打印当前实际二进制路径
   doctor                  检查 PATH / 冲突配置
+  cleanup                 清理用户级配置（卸载配套，运行时数据保留）
   update                  检查新版本（只读）
   version                 显示版本`
 
@@ -39,7 +37,7 @@ func Main(args []string) int {
 	cmd, rest := args[0], args[1:]
 	switch cmd {
 	case "--version", "version":
-		fmt.Println("DevSwitch", Version)
+		fmt.Println("DevSwitch", models.AppVersion)
 		return 0
 	case "scan":
 		return cmdScan()
@@ -59,6 +57,8 @@ func Main(args []string) int {
 		return cmdApply(rest)
 	case "which":
 		return cmdWhich(rest)
+	case "cleanup":
+		return cmdCleanup()
 	case "update":
 		return cmdUpdate()
 	case "gui":
@@ -294,10 +294,10 @@ func cmdUpdate() int {
 		fmt.Fprintf(os.Stderr, "检查更新失败：%v\n", err)
 		return 1
 	}
-	if latest == Version {
-		fmt.Printf("已是最新版本（%s）。\n", Version)
+	if latest == models.AppVersion {
+		fmt.Printf("已是最新版本（%s）。\n", models.AppVersion)
 	} else {
-		fmt.Printf("发现新版本：%s（当前 %s）。\n下载：https://github.com/xyztony999/devswitch/releases/latest\n", latest, Version)
+		fmt.Printf("发现新版本：%s（当前 %s）。\n下载：https://github.com/xyztony999/devswitch/releases/latest\n", latest, models.AppVersion)
 	}
 	return 0
 }

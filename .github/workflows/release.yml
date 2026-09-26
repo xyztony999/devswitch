@@ -4,55 +4,140 @@ on:
   push:
     tags: ["v*"]
 
+env:
+  GO_VERSION: "1.24"
+  LDFLAGS_BASE: -s -w -trimpath
+
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Download Chinese wizard translation
         run: >
           curl -fsSL -o installer/ChineseSimplified.isl
           https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl
-        continue-on-error: true
-      - name: Read version
+        continue-on-error: true  # 缺语言包时回退英文向导
+      - name: Read version and cross-check
         id: ver
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}" -replace '^v', ''
-          $pkg = (Select-String -Path devswitch/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          if ($tag -ne $pkg) { throw "tag v$tag 与包版本 $pkg 不一致" }
+          $src = (Select-String -Path internal/models/models.go -Pattern 'AppVersion = "([^"]+)"').Matches[0].Groups[1].Value
+          $base = $src -replace '-dev$'
+          if ($tag -ne $base) { throw "tag v$tag 与 models.AppVersion（$src）不一致" }
           "version=$tag" >> $env:GITHUB_OUTPUT
-      - name: Build setup.exe (x64)
-        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} devswitch.iss
-      - name: Build setup.exe (ARM64)
-        run: ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} /DArchMode=arm64 devswitch.iss
-      - uses: actions/upload-artifact@v4
+      - name: Set up MinGW (x64 CGO)
+        uses: msys2/setup-msys2@v2
         with:
-          name: windows-setup
-          path: dist/devswitch-setup-*.exe
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install rpm toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
-      - name: Check tag matches package version
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+          release: false
+      - name: Build GUI binary (x64)
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          echo "C:\msys64\ucrt64\bin" >> $GITHUB_PATH
+          export PATH="/c/msys64/ucrt64/bin:$PATH"
+          go build -tags gui -trimpath \
+            -ldflags "-s -w -H windowsgui -X github.com/xyztony999/devswitch/internal/models.AppVersion=${{ steps.ver.outputs.version }}" \
+            -o dist/bin/devswitch-x64.exe ./cmd/devswitch
+      - name: Set up llvm-mingw (arm64 交叉 CGO)
         shell: bash
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          pkg=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' devswitch/__init__.py)
-          [ "$tag" = "$pkg" ] || { echo "tag v$tag 与包版本 $pkg 不一致"; exit 1; }
-      - name: Build deb + rpm (amd64 & arm64)
-        run: python3 tools/build_packages.py
+          curl -fsSL -o /tmp/llvm-mingw.zip \
+            https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip
+          7z x /tmp/llvm-mingw.zip -o/c/ > /dev/null
+          mv /c/llvm-mingw-* /c/llvm-mingw
+      - name: Build GUI binary (arm64)
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          GOARCH: arm64
+          CC: C:/llvm-mingw/bin/aarch64-w64-mingw32-clang
+          CXX: C:/llvm-mingw/bin/aarch64-w64-mingw32-clang++
+        run: |
+          go build -tags gui -trimpath \
+            -ldflags "-s -w -H windowsgui -X github.com/xyztony999/devswitch/internal/models.AppVersion=${{ steps.ver.outputs.version }}" \
+            -o dist/bin/devswitch-arm64.exe ./cmd/devswitch
+      - name: Portable zips
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          Compress-Archive -Path dist/bin/devswitch-x64.exe -DestinationPath "dist/devswitch-$v-windows-x64.zip"
+          Compress-Archive -Path dist/bin/devswitch-arm64.exe -DestinationPath "dist/devswitch-$v-windows-arm64.zip"
+      - name: Build setup.exe (x64)
+        run: |
+          ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} `
+            /DBinSource=dist\bin\devswitch-x64.exe devswitch.iss
+      - name: Build setup.exe (ARM64)
+        run: |
+          ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} /DArchMode=arm64 `
+            /DBinSource=dist\bin\devswitch-arm64.exe devswitch.iss
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-packages
+          name: windows-artifacts
+          path: |
+            dist/devswitch-setup-*.exe
+            dist/devswitch-*-windows-*.zip
+
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Check tag matches source version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          src=$(sed -n 's/.*AppVersion = "\(.*\)".*/\1/p' internal/models/models.go | head -1)
+          base="${src%-dev}"
+          [ "$tag" = "$base" ] || { echo "tag v$tag 与 models.AppVersion（$src）不一致"; exit 1; }
+      - name: Install GUI toolchain (GTK / webkit2gtk-4.0)
+        run: >
+          sudo apt-get update -qq &&
+          sudo apt-get install -y -qq libgtk-3-dev
+          libwebkit2gtk-4.0-dev libayatana-appindicator3-dev rpm
+      - name: Build CLI (static) and GUI binaries
+        run: |
+          mkdir -p dist/bin
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X github.com/xyztony999/devswitch/internal/models.AppVersion=${GITHUB_REF_NAME#v}" \
+            -o dist/bin/devswitch ./cmd/devswitch
+          CGO_ENABLED=1 go build -tags gui -trimpath \
+            -ldflags "-s -w -X github.com/xyztony999/devswitch/internal/models.AppVersion=${GITHUB_REF_NAME#v}" \
+            -o dist/bin/devswitch-gui ./cmd/devswitch
+          dist/bin/devswitch version
+      - name: Build deb + rpm (native arch)
+        run: python3 tools/build_packages.py --version "${GITHUB_REF_NAME#v}"
+      - name: Portable tarball
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/stage/devswitch-linux-${{ matrix.arch }}
+          cp dist/bin/devswitch dist/bin/devswitch-gui dist/stage/devswitch-linux-${{ matrix.arch }}/
+          tar -czf "dist/devswitch-$v-linux-${{ matrix.arch }}.tar.gz" -C dist/stage devswitch-linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts-${{ matrix.arch }}
           path: |
             dist/*.deb
             dist/*.rpm
+            dist/devswitch-*-linux-*.tar.gz
 
   release:
     runs-on: ubuntu-latest
@@ -71,20 +156,25 @@ jobs:
         with:
           files: |
             dist/devswitch-setup-*.exe
+            dist/devswitch-*-windows-*.zip
             dist/*.deb
             dist/*.rpm
+            dist/devswitch-*-linux-*.tar.gz
           generate_release_notes: true
           body: |
             ### 下载指引
 
+            DevSwitch 2.0 起为自包含二进制（无需安装 Python / Go）。
+
             | 文件 | 适用平台 |
             |---|---|
-            | `devswitch-setup-*-x64.exe` | Windows（Intel / AMD 及大多数设备） |
-            | `devswitch-setup-*-arm64.exe` | Windows on ARM（骁龙等 ARM 笔记本） |
-            | `*_amd64.deb` | Debian 系 x64（`uname -m` 显示 `x86_64`） |
-            | `*_arm64.deb` | Debian 系 ARM64（`uname -m` 显示 `aarch64`） |
-            | `*.x86_64.rpm` | Fedora / RHEL 系 x64 |
-            | `*.aarch64.rpm` | Fedora / RHEL 系 ARM64 |
+            | `devswitch-setup-*-x64.exe` | Windows 安装版（Intel / AMD） |
+            | `devswitch-setup-*-arm64.exe` | Windows on ARM 安装版 |
+            | `devswitch-*-windows-*.zip` | Windows 便携版（解压即用） |
+            | `*_amd64.deb` / `*.x86_64.rpm` | Linux x64（Debian 系 / RHEL 系） |
+            | `*_arm64.deb` / `*.aarch64.rpm` | Linux ARM64 |
+            | `devswitch-*-linux-*.tar.gz` | Linux 便携版（CLI + GUI） |
 
-            deb / rpm 包内容为纯 Python，两种架构安装体验一致。
-            Windows 需已装 Python 3.8+；Linux 各发行版自带的 python3 即可。
+            - Windows：需 WebView2 运行时（Win10/11 自带）
+            - Linux deb/rpm：CLI 为静态二进制零依赖；GUI 需系统 GTK3 + WebKitGTK（弱依赖，主流发行版仓库均有）
+            - 命令行用法：`devswitch scan` → `devswitch use node 22`；图形界面：`devswitch gui`

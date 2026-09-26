@@ -91,11 +91,12 @@ func Use(tool models.Tool, query string) (*models.Runtime, error) {
 	return runtime, nil
 }
 
-// applyAll 生成一切生效物（shim/env/钩子/用户环境变量）。
+// applyAll 生成一切生效物（shim/启动器/env/钩子/用户环境变量）。
 func applyAll(state *models.State) {
 	_ = apply.WriteCurrentEnv(state)
 	_ = apply.WriteEnvSh(state)
 	_, _ = apply.WriteShims(state)
+	_ = apply.WriteLaunchers()
 	applyHooks(state)
 }
 

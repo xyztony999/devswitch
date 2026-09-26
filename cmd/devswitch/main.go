@@ -7,8 +7,14 @@ import (
 	"os"
 
 	"github.com/xyztony999/devswitch/internal/cli"
+	"github.com/xyztony999/devswitch/internal/gui"
 )
 
 func main() {
-	os.Exit(cli.Main(os.Args[1:]))
+	args := os.Args[1:]
+	attachParentConsole() // windowsgui 子系统下把 CLI 输出接回终端；其他平台空操作
+	if len(args) == 0 && defaultToGUI() {
+		os.Exit(gui.Run())
+	}
+	os.Exit(cli.Main(args))
 }

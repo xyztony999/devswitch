@@ -1,17 +1,21 @@
-; DevSwitch Windows 安装程序脚本（Inno Setup 6）
+; DevSwitch Windows 安装程序脚本（Inno Setup 6）—— 2.0 起打包 Go 单文件二进制
 ;
 ; 编译：  ISCC devswitch.iss
-; 版本：  CI 可用 /DAppVersion=x.y.z 覆盖；本地默认取下行（与 __init__.py 同步维护）
-; 架构：  /DArchMode=arm64 产出原生 ARM64 安装器（默认 x64compatible）
+; 版本：  CI 用 /DAppVersion=x.y.z 覆盖；本地默认取下行
+; 架构：  /DArchMode=arm64 打包 arm64 二进制（默认 x64）；
+;         二进制来源用 /DBinSource=dist\bin\devswitch-arm64.exe 覆盖
 ; 命名：  产物统一小写 devswitch 前缀（与 deb/rpm 一致）；
 ;         向导与控制面板显示名仍为 DevSwitch（AppName）
 ; 语言：  installer\ChineseSimplified.isl 存在时提供简中向导（CI 会自动下载），
 ;         缺失时使用英文向导
 #ifndef AppVersion
-#define AppVersion "1.2.0"
+#define AppVersion "2.0.0"
 #endif
 #ifndef ArchMode
 #define ArchMode "x64compatible"
+#endif
+#ifndef BinSource
+#define BinSource "dist\bin\devswitch-x64.exe"
 #endif
 #if ArchMode == "arm64"
 #define ArchSuffix "-arm64"
@@ -56,73 +60,27 @@ Name: "chinesesimplified"; MessagesFile: "installer\ChineseSimplified.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式 / Create desktop shortcut"; GroupDescription: "附加选项 / Additional options:"; Flags: unchecked
 
 [Files]
-; 运行时包：{app}\devswitch（python 包，运行 devswitch install --in-place 就地配置）
-Source: "devswitch\*"; DestDir: "{app}\devswitch"; Excludes: "__pycache__,*.pyc"; Flags: recursesubdirs ignoreversion
+; Go 单文件二进制（GUI 与 CLI 同体；首次运行自动完成用户级配置）
+Source: "{#BinSource}"; DestDir: "{app}"; DestName: "devswitch.exe"; Flags: ignoreversion
 Source: "share\icons\devswitch.ico"; DestDir: "{app}"; Flags: ignoreversion
 
+[InstallDelete]
+; 1.x（Python 版）装到 {app}\devswitch\，升级时清掉旧布局
+Type: filesandordirs; Name: "{app}\devswitch"
+
 [Icons]
-; 启动器在 [Run] 阶段由 devswitch install 生成于 {localappdata}\devswitch\bin
-Name: "{autoprograms}\DevSwitch"; Filename: "{app}\..\bin\devswitch-gui.cmd"; WorkingDir: "{app}"; Comment: "Node / Java 版本切换器"; IconFilename: "{app}\devswitch.ico"
-Name: "{autodesktop}\DevSwitch"; Filename: "{app}\..\bin\devswitch-gui.cmd"; WorkingDir: "{app}"; Comment: "Node / Java 版本切换器"; IconFilename: "{app}\devswitch.ico"; Tasks: desktopicon
+; 无参数启动即进入图形界面（见 cmd/devswitch 默认行为）
+Name: "{autoprograms}\DevSwitch"; Filename: "{app}\devswitch.exe"; Comment: "Node / Java / Maven / Gradle 版本切换器"; IconFilename: "{app}\devswitch.ico"
+Name: "{autodesktop}\DevSwitch"; Filename: "{app}\devswitch.exe"; Comment: "Node / Java / Maven / Gradle 版本切换器"; IconFilename: "{app}\devswitch.ico"; Tasks: desktopicon
 
 [Run]
-; 核心配置（shim、启动器、用户 PATH、shell 钩子、GUI 依赖）复用包内安装逻辑
-Filename: "{cmd}"; Parameters: "/C py -3 -m devswitch setup --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: PyLauncherExists
-Filename: "{cmd}"; Parameters: "/C python -m devswitch setup --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: NotPyLauncherExists
-Filename: "{app}\..\bin\devswitch-gui.cmd"; Description: "运行 DevSwitch / Launch DevSwitch"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
+; 首次配置（shim / 用户 PATH / shell 钩子 / 扫描本机版本），静默执行
+Filename: "{app}\devswitch.exe"; Parameters: "scan"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Flags: runhidden waituntilterminated
+Filename: "{app}\devswitch.exe"; Parameters: "gui"; Description: "运行 DevSwitch / Launch DevSwitch"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; 清理 shim / 启动器 / 用户 PATH / JAVA_HOME / 钩子（程序文件由向导自己删除）
-Filename: "{cmd}"; Parameters: "/C py -3 -m devswitch uninstall --keep-app-files"; WorkingDir: "{app}"; RunOnceId: "DevSwitchCleanup"; Check: PyLauncherExists
-Filename: "{cmd}"; Parameters: "/C python -m devswitch uninstall --keep-app-files"; WorkingDir: "{app}"; RunOnceId: "DevSwitchCleanupPy"; Check: NotPyLauncherExists
+; 清理 shim / 用户 PATH / JAVA_HOME 等用户变量 / shell 钩子（程序文件由向导删除）
+Filename: "{app}\devswitch.exe"; Parameters: "cleanup"; WorkingDir: "{app}"; RunOnceId: "DevSwitchCleanup"; Flags: runhidden waituntilterminated
 
 [UninstallDelete]
-; 连同运行期产生的 __pycache__ 等一并清掉
 Type: filesandordirs; Name: "{app}"
-
-[Code]
-function PyLauncherExists(): Boolean;
-begin
-  Result := FileExists(GetEnv('SystemRoot') + '\py.exe');
-end;
-
-function NotPyLauncherExists(): Boolean;
-begin
-  Result := not PyLauncherExists();
-end;
-
-function PythonOk(): Boolean;
-var
-  rc: Integer;
-begin
-  Result := False;
-  if Exec(GetEnv('SystemRoot') + '\System32\cmd.exe',
-          '/C py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)"',
-          '', SW_HIDE, ewWaitUntilTerminated, rc) and (rc = 0) then
-  begin
-    Result := True;
-    Exit;
-  end;
-  if Exec(GetEnv('SystemRoot') + '\System32\cmd.exe',
-          '/C python -c "import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)"',
-          '', SW_HIDE, ewWaitUntilTerminated, rc) and (rc = 0) then
-  begin
-    Result := True;
-    Exit;
-  end;
-end;
-
-function InitializeSetup(): Boolean;
-var
-  err: Integer;
-begin
-  Result := PythonOk();
-  if not Result then
-  begin
-    if MsgBox(
-      'DevSwitch 需要 Python 3.8+，当前没有检测到。' + #13#10 + #13#10 +
-      '是否现在打开下载页面？安装 Python 后请重新运行本安装程序。',
-      mbConfirmation, MB_YESNO) = IDYES then
-      ShellExec('open', 'https://www.python.org/downloads/', '', '', SW_SHOWNORMAL, ewNoWait, err);
-  end;
-end;

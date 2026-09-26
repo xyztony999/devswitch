@@ -2,22 +2,26 @@
 # -*- coding: utf-8 -*-
 """构建 Linux 系统包（deb / rpm），在 Linux（WSL 或 CI）上运行。
 
-用法：
-    python3 tools/build_packages.py [--version 1.1.0] [--type deb|rpm|all] [--arch all|amd64|arm64]
+2.0 起打包 Go 二进制（需先构建好）：
+    dist/bin/devswitch      静态 CLI（CGO_ENABLED=0，无系统依赖）
+    dist/bin/devswitch-gui  GUI（CGO + webkit2gtk-4.0，动态链接）
 
-产物（输出到 dist/）：
-    devswitch_<version>_amd64.deb  / devswitch_<version>_arm64.deb
+用法：
+    python3 tools/build_packages.py [--version 2.0.0] [--type deb|rpm|all]
+
+在本机架构上原生打包（CI 里 amd64 与 arm64 各跑一次）：
+    devswitch_<version>_amd64.deb   / devswitch_<version>_arm64.deb
     devswitch-<version>-1.x86_64.rpm / devswitch-<version>-1.aarch64.rpm
 
-包内容为纯 Python 源码，各架构包体相同、仅 Architecture 字段不同；
-系统包只放置文件与 /usr/bin 入口，用户级配置（shim、shell 钩子）由
-/usr/bin/devswitch 在首次运行时自动完成。
+包内容：/usr/bin/devswitch（CLI）、/usr/bin/devswitch-gui（GUI）、
+桌面入口与图标。GUI 的 webkit/gtk 依赖声明为弱依赖（Recommends）：
+CLI 保证任何环境可用，GUI 在有图形栈的发行版上开箱即用。
+用户级配置（shim、shell 钩子）由首次运行 devswitch scan 或 GUI 启动时自动完成。
 """
 from __future__ import print_function, unicode_literals
 
 import argparse
-import os
-import re
+import platform
 import shutil
 import subprocess
 import sys
@@ -25,52 +29,45 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE_DIR = "usr/lib/devswitch"          # Python 包安装位置（系统级、只读）
-PY = "/usr/bin/python3"
+CLI_BIN = ROOT / "dist" / "bin" / "devswitch"
+GUI_BIN = ROOT / "dist" / "bin" / "devswitch-gui"
 
-WRAPPER_CLI = """#!/bin/sh
-# DevSwitch 系统包入口：首次运行自动完成用户级初始化（扫描、shim、shell 钩子）
-PACKAGE_DIR={package_dir}
-INIT_MARKER="${{XDG_CONFIG_HOME:-$HOME/.config}}/devswitch/state.json"
-if [ ! -f "$INIT_MARKER" ]; then
-    PYTHONPATH="$PACKAGE_DIR" {python} -m devswitch scan >/dev/null 2>&1 || true
-fi
-exec env PYTHONPATH="$PACKAGE_DIR" {python} -m devswitch "$@"
-""".format(package_dir="/" + PACKAGE_DIR, python=PY)
-
-WRAPPER_GUI = """#!/bin/sh
-# DevSwitch 图形界面入口（系统包）
-exec env PYTHONPATH=/{package_dir} {python} -m devswitch gui "$@"
-""".format(package_dir=PACKAGE_DIR, python=PY)
+DEB_GUI_RECOMMENDS = "libgtk-3-0, libwebkit2gtk-4.0-37, libayatana-appindicator3-1"
+RPM_GUI_RECOMMENDS = "gtk3, webkit2gtk4.0, libayatana-appindicator3-gtk3"
 
 
-def read_version():
-    text = (ROOT / "devswitch" / "__init__.py").read_text(encoding="utf-8")
-    match = re.search(r'__version__ = "([^"]+)"', text)
-    return match.group(1)
+def native_deb_arch():
+    # type: () -> str
+    try:
+        out = subprocess.check_output(
+            ["dpkg", "--print-architecture"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+        if out:
+            return out
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    machine = platform.machine().lower()
+    return "arm64" if machine in ("aarch64", "arm64") else "amd64"
 
 
 def build_staging(staging):
     # type: (Path) -> None
-    pkg_dest = staging / PACKAGE_DIR / "devswitch"
-    pkg_dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(
-        ROOT / "devswitch",
-        pkg_dest,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-    )
+    if not CLI_BIN.exists():
+        raise SystemExit("缺少 %s，请先构建静态 CLI 二进制" % CLI_BIN)
+    if not GUI_BIN.exists():
+        raise SystemExit("缺少 %s，请先构建 GUI 二进制" % GUI_BIN)
     bin_dir = staging / "usr/bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
-    for name, content in (("devswitch", WRAPPER_CLI), ("devswitch-gui", WRAPPER_GUI)):
-        target = bin_dir / name
-        target.write_text(content, encoding="utf-8", newline="\n")
-        target.chmod(0o755)
+    shutil.copy2(str(CLI_BIN), str(bin_dir / "devswitch"))
+    shutil.copy2(str(GUI_BIN), str(bin_dir / "devswitch-gui"))
+    (bin_dir / "devswitch").chmod(0o755)
+    (bin_dir / "devswitch-gui").chmod(0o755)
     apps = staging / "usr/share/applications"
     apps.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "share/applications/devswitch.desktop", apps / "devswitch.desktop")
+    shutil.copy2(str(ROOT / "share/applications/devswitch.desktop"), str(apps / "devswitch.desktop"))
     icons = staging / "usr/share/icons/hicolor/scalable/apps"
     icons.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "share/icons/hicolor/scalable/apps/devswitch.svg", icons / "devswitch.svg")
+    shutil.copy2(str(ROOT / "share/icons/hicolor/scalable/apps/devswitch.svg"), str(icons / "devswitch.svg"))
 
 
 def build_deb(version, arch):
@@ -85,14 +82,17 @@ def build_deb(version, arch):
             "Version: {version}\n"
             "Architecture: {arch}\n"
             "Maintainer: xyztony999 <42613048+xyztony999@users.noreply.github.com>\n"
-            "Depends: python3 (>= 3.8)\n"
+            "Recommends: {recommends}\n"
             "Section: utils\n"
             "Priority: optional\n"
             "Homepage: https://github.com/xyztony999/devswitch\n"
-            "Description: Node/npm/Java version manager via user-level shims\n"
-            " Scan, manage and switch Node.js / npm / Java versions per user,\n"
-            " with an optional tray GUI. Configuration happens in the user\n"
-            " profile on first run; no root setup steps.\n".format(version=version, arch=arch),
+            "Description: Node/Java/Maven/Gradle version manager via user-level shims\n"
+            " Scan, manage and switch Node.js / Java / Maven / Gradle versions per\n"
+            " user, with an optional tray GUI. The CLI binary is static; the GUI\n"
+            " binary additionally needs a GTK/WebKit stack (weak dependency).\n"
+            " Configuration happens in the user profile on first run.\n".format(
+                version=version, arch=arch, recommends=DEB_GUI_RECOMMENDS
+            ),
             encoding="utf-8",
             newline="\n",
         )
@@ -107,21 +107,22 @@ def build_deb(version, arch):
 RPM_SPEC = """Name: devswitch
 Version: __VERSION__
 Release: 1
-Summary: Node/npm/Java version manager via user-level shims
+Summary: Node/Java/Maven/Gradle version manager via user-level shims
 License: MIT
 URL: https://github.com/xyztony999/devswitch
-Requires: python3 >= 3.8
-# 关闭自动依赖分析：避免对 Python 源码生成 python(abi) 版本依赖
+Recommends: __RECOMMENDS__
+# CLI 为静态二进制；关闭自动依赖分析，避免为 GUI 二进制生成硬性 webkit 依赖
 AutoReqProv: no
 %description
-Scan, manage and switch Node.js / npm / Java versions per user, with an
-optional tray GUI. Configuration happens in the user profile on first run.
+Scan, manage and switch Node.js / Java / Maven / Gradle versions per user,
+with an optional tray GUI. The CLI binary is static; the GUI binary
+additionally needs a GTK/WebKit stack (weak dependency). Configuration
+happens in the user profile on first run.
 
 %install
 cp -a __STAGING__/usr %{buildroot}/
 
 %files
-/usr/lib/devswitch
 /usr/bin/devswitch
 /usr/bin/devswitch-gui
 /usr/share/applications/devswitch.desktop
@@ -136,7 +137,9 @@ def build_rpm(version, arch):
     try:
         build_staging(staging)
         spec = (
-            RPM_SPEC.replace("__VERSION__", version).replace("__STAGING__", str(staging))
+            RPM_SPEC.replace("__VERSION__", version)
+            .replace("__RECOMMENDS__", RPM_GUI_RECOMMENDS)
+            .replace("__STAGING__", str(staging))
         )
         (work / "devswitch.spec").write_text(spec, encoding="utf-8", newline="\n")
         for sub in ("BUILD", "RPMS", "SOURCES", "SPECS", "SRPMS"):
@@ -162,21 +165,19 @@ def build_rpm(version, arch):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="构建 DevSwitch 的 deb/rpm 包")
-    parser.add_argument("--version", default=read_version())
+    parser = argparse.ArgumentParser(description="构建 DevSwitch 的 deb/rpm 包（本机架构）")
+    parser.add_argument("--version", required=True)
     parser.add_argument("--type", choices=("deb", "rpm", "all"), default="all")
-    parser.add_argument("--arch", choices=("all", "amd64", "arm64"), default="all")
     args = parser.parse_args()
 
+    arch = native_deb_arch()
+    rpm_arch = {"amd64": "x86_64", "arm64": "aarch64"}[arch]
     types = ("deb", "rpm") if args.type == "all" else (args.type,)
-    archs = ("amd64", "arm64") if args.arch == "all" else (args.arch,)
     for kind in types:
-        for arch in archs:
-            rpm_arch = {"amd64": "x86_64", "arm64": "aarch64"}[arch]
-            builder = build_deb if kind == "deb" else build_rpm
-            target_arch = arch if kind == "deb" else rpm_arch
-            dest = builder(args.version, target_arch)
-            print("built", dest)
+        builder = build_deb if kind == "deb" else build_rpm
+        target_arch = arch if kind == "deb" else rpm_arch
+        dest = builder(args.version, target_arch)
+        print("built", dest)
     return 0
 
 
