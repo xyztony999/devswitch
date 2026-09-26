@@ -70,8 +70,11 @@ jobs:
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
-          Compress-Archive -Path dist/bin/devswitch-x64.exe -DestinationPath "dist/devswitch-$v-windows-x64.zip"
-          Compress-Archive -Path dist/bin/devswitch-arm64.exe -DestinationPath "dist/devswitch-$v-windows-arm64.zip"
+          New-Item -ItemType Directory -Force dist/zip-x64, dist/zip-arm64 | Out-Null
+          Copy-Item dist/bin/devswitch-x64.exe dist/zip-x64/devswitch.exe
+          Copy-Item dist/bin/devswitch-arm64.exe dist/zip-arm64/devswitch.exe
+          Compress-Archive -Path dist/zip-x64/devswitch.exe -DestinationPath "dist/devswitch-$v-windows-x64.zip"
+          Compress-Archive -Path dist/zip-arm64/devswitch.exe -DestinationPath "dist/devswitch-$v-windows-arm64.zip"
       - name: Build setup.exe (x64)
         run: |
           ISCC.exe /DAppVersion=${{ steps.ver.outputs.version }} `

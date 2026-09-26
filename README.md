@@ -40,10 +40,10 @@ DevSwitch 的做法：
 
 ```bash
 # Debian 系（Ubuntu / Debian / Deepin / openKylin / UOS 等）
-sudo apt install ./devswitch_2.0.0_amd64.deb     # arm64 机器换成 _arm64.deb
+sudo apt install ./devswitch_x.y.z_amd64.deb     # arm64 机器换成 _arm64.deb
 
 # Fedora / RHEL 系
-sudo dnf install ./devswitch-2.0.0-1.x86_64.rpm  # arm64 机器换成 _aarch64.rpm
+sudo dnf install ./devswitch-x.y.z-1.x86_64.rpm  # arm64 机器换成 _aarch64.rpm
 ```
 
 包内含两个二进制：`/usr/bin/devswitch`（静态 CLI，零系统依赖）与 `/usr/bin/devswitch-gui`（图形界面）。**首次运行 `devswitch scan` 或图形界面时自动完成用户级初始化**（扫描运行时、写 shim、shell 钩子），无需任何 root 配置步骤。非 deb / rpm 发行版可用便携版 tar.gz。

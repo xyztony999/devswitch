@@ -57,6 +57,8 @@ func Main(args []string) int {
 		return cmdApply(rest)
 	case "which":
 		return cmdWhich(rest)
+	case "doctor":
+		return cmdDoctor(rest)
 	case "cleanup":
 		return cmdCleanup()
 	case "update":
