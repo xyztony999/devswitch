@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from . import __version__, paths, service
+from .models import TOOLS, TOOL_LABELS
 from .store import load_state
 
 UI_DIR = Path(__file__).resolve().parent / "ui"
@@ -74,7 +75,7 @@ def build_state(page, selected="", flash=None):
             "java": _runtime_dict(state.current_runtime("java")),
         },
         "runtimes": [item.to_dict() for item in state.for_tool(page)]
-        if page in ("node", "java")
+        if page in TOOLS
         else [],
         "issues": [
             {"level": level, "code": code, "message": message}
@@ -87,7 +88,7 @@ def build_state(page, selected="", flash=None):
             "config": str(paths.config_dir()),
         },
     }
-    if page in ("node", "java") and not payload["selected"]:
+    if page in TOOLS and not payload["selected"]:
         current = state.current_runtime(page)
         if current is not None:
             payload["selected"] = current.home
@@ -145,8 +146,7 @@ class UiController(object):
             self.push({"text": "已重新扫描本机 Node / Java。", "kind": "ok"})
             self.io.refresh_tray()
         elif op == "use":
-            tool = "java" if self.page == "java" else "node"
-            self.apply_use(tool, data.get("home") or "")
+            self.apply_use(self.page, data.get("home") or "")
         elif op == "import":
             self._import()
         elif op == "fix":
@@ -176,7 +176,7 @@ class UiController(object):
             return
         self.page = tool
         self.selected = runtime.home
-        name = "Node.js" if tool == "node" else "Java"
+        name = TOOL_LABELS.get(tool, tool)
         if from_tray:
             self.io.notify("已切换", "{} → {}".format(name, runtime.version))
             if self._ready and self.io.is_visible():
@@ -191,7 +191,7 @@ class UiController(object):
         self.io.refresh_tray()
 
     def _import(self):
-        tool = "java" if self.page == "java" else "node"
+        tool = self.page  # 页签名即工具名（node/java/maven/gradle）
         title = "选择 {} 安装目录".format("JDK" if tool == "java" else "Node.js")
         chosen = self.io.choose_folder(title)
         if not chosen:

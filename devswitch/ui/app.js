@@ -130,7 +130,7 @@
 
     var items = state.runtimes || [];
     if (!items.length) {
-      var kind = state.page === "java" ? "Java" : "Node.js";
+      var kind = { node: "Node.js", java: "Java", maven: "Maven", gradle: "Gradle" }[state.page] || state.page;
       sider.innerHTML =
         '<div class="empty">本机没有发现 ' +
         kind +
@@ -221,7 +221,7 @@
       "</div></div>" +
       (active
         ? '<span class="dim">当前终端的 ' +
-          (item.tool === "java" ? "java / javac" : "node / npm") +
+          ({ node: "node / npm", java: "java / javac", maven: "mvn", gradle: "gradle" }[item.tool] || item.tool) +
           " 已指向这个版本。</span>"
         : '<button class="btn-primary lg" data-use="' + esc(item.home) + '">切换到此版本</button>') +
       "</div>";
@@ -230,10 +230,11 @@
   function renderStatus() {
     var paths = state.paths || {};
     document.getElementById("status-path").textContent = paths.localBin || "shim 目录";
-    var node = currentOf("node");
-    var java = currentOf("java");
-    document.getElementById("status-mid").textContent =
-      "node " + (node ? node.version : "—") + " · java " + (java ? java.version : "—");
+    var parts = ["node", "java", "maven", "gradle"].map(function (tool) {
+      var runtime = currentOf(tool);
+      return tool + " " + (runtime ? runtime.version : "—");
+    });
+    document.getElementById("status-mid").textContent = parts.join(" · ");
     document.getElementById("status-ver").textContent = state.version ? "v" + state.version : "";
     var aboutVer = document.getElementById("about-ver");
     if (aboutVer) aboutVer.textContent = state.version ? "v" + state.version : "";

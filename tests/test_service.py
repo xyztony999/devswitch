@@ -95,13 +95,16 @@ def test_which_binary_jre_fallback(lin, tmp_path):
 # doctor — Windows branch (registry stubbed)
 # --------------------------------------------------------------------------
 
-def _stub_winenv(monkeypatch, path_entries=(), java_home=None):
+def _stub_winenv(monkeypatch, path_entries=(), env_values=None):
     from devswitch import winenv
 
+    values = dict(env_values or {})
     monkeypatch.setattr(winenv, "user_path_entries", lambda: list(path_entries))
-    monkeypatch.setattr(winenv, "get_user_java_home", lambda: java_home)
+    monkeypatch.setattr(winenv, "get_user_value",
+                        lambda name: (values[name], 1) if name in values else None)
+    monkeypatch.setattr(winenv, "get_user_java_home", lambda: values.get("JAVA_HOME"))
     monkeypatch.setattr(winenv, "ensure_path_entry", lambda *a, **k: True)
-    monkeypatch.setattr(winenv, "set_user_java_home", lambda *a, **k: True)
+    monkeypatch.setattr(winenv, "set_user_value", lambda *a, **k: True)
 
 
 def _codes(issues):
@@ -113,20 +116,21 @@ def test_doctor_windows_happy_path(win, monkeypatch):
                    {"node": WIN_NODE.home, "java": WIN_JAVA.home})
     _stub_winenv(monkeypatch,
                  path_entries=[str(win.local_bin)],
-                 java_home=WIN_JAVA.home)
+                 env_values={"JAVA_HOME": WIN_JAVA.home})
     monkeypatch.setenv("PATH", str(win.local_bin) + os.pathsep + r"E:\Windows")
     apply.write_env_sh(state)
     apply.write_shims(state)
     for target in paths.hook_targets():
         apply.install_hook(target)
     issues = service.doctor_issues()
-    assert _codes(issues) == set(), issues
+    blocking = [item for item in issues if item[0] != "info"]
+    assert blocking == [], blocking
 
 
 def test_doctor_windows_reports_missing_registry(win, monkeypatch):
     _state(win, [WIN_NODE, WIN_JAVA],
            {"node": WIN_NODE.home, "java": WIN_JAVA.home})
-    _stub_winenv(monkeypatch, path_entries=[], java_home=None)
+    _stub_winenv(monkeypatch, path_entries=[], env_values={})
     monkeypatch.setenv("PATH", str(win.local_bin))
     apply.write_env_sh(State(current={"node": WIN_NODE.home, "java": WIN_JAVA.home},
                              runtimes=[WIN_NODE, WIN_JAVA]))

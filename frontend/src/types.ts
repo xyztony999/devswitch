@@ -1,7 +1,8 @@
-export type ToolPage = 'node' | 'java' | 'doctor'
+export type Tool = 'node' | 'java' | 'maven' | 'gradle'
+export type ToolPage = Tool | 'doctor'
 
 export interface Runtime {
-  tool: 'node' | 'java'
+  tool: Tool
   version: string
   major: string
   home: string
@@ -20,7 +21,7 @@ export interface Issue {
 export interface AppState {
   page: ToolPage
   version: string
-  current: { node?: Runtime | null; java?: Runtime | null }
+  current: Partial<Record<Tool, Runtime | null>>
   runtimes: Runtime[]
   issues: Issue[]
   selected: string

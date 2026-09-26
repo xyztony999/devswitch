@@ -1,8 +1,8 @@
 # DevSwitch
 
-跨 **Windows / Linux** 的 Node / npm / Java 版本管理器。命令行和图形界面都能用，切换发生在当前用户目录，不需要管理员 / sudo，也不去动系统级的版本管理（`update-alternatives`、机器级安装等）。
+跨 **Windows / Linux** 的 Node / npm / Java / Maven / Gradle 版本管理器。命令行和图形界面都能用，切换发生在当前用户目录，不需要管理员 / sudo，也不去动系统级的版本管理（`update-alternatives`、机器级安装等）。
 
-DevSwitch 会扫描本机已有的运行时，收拢到一张列表里，点一下（或一条命令）完成切换。
+DevSwitch 会扫描本机已有的运行时（或直接下载安装），收拢到一张列表里，点一下（或一条命令）完成切换。
 
 ## 它解决什么问题
 
@@ -67,18 +67,24 @@ sudo dnf install ./devswitch-1.0.0-1.x86_64.rpm  # arm64 机器换成 _aarch64.r
 
 ```bash
 devswitch scan              # 扫描本机已有版本
+devswitch install node 22   # 下载安装指定大版本并切换（--mirror npmmirror|tuna 走国内镜像）
+devswitch install java 17
 devswitch list              # 查看列表，* 为当前
 devswitch current
 devswitch use node 22       # 也支持完整版本号或安装目录
-devswitch use java 17
-devswitch import node D:\some-node     # 导入一个本地安装目录
+devswitch use maven 3       # Maven / Gradle 同一套用法
+devswitch export            # 导出当前版本选择到 .devswitch（可提交进仓库，团队对齐用）
+devswitch apply .devswitch  # 按文件对齐版本（--install-missing 自动下载缺少的）
 devswitch import java /usr/lib/jvm/java-17-openjdk
 devswitch which node
-devswitch which JAVA_HOME
+devswitch which MAVEN_HOME
 devswitch doctor            # 检查 PATH / 冲突的 shell 配置
 devswitch doctor --fix      # 写入钩子，并注释手写 Node PATH
-devswitch hook install      # （重）安装 shell 钩子
+devswitch update            # 检查新版本（只读，不自动升级）
+devswitch completion bash   # shell 补全（bash / zsh / powershell）
 ```
+
+安装 DevSwitch 自身的命令行入口：`python -m devswitch setup`（配置）/ `devswitch uninstall`（完整卸载）。
 
 ## 数据放哪
 

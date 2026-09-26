@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from . import apply, detect, paths
-from .models import Runtime, State
+from .models import Runtime, State, TOOLS, TOOL_LABELS
 from .store import load_state, save_state
 
 
@@ -41,7 +41,7 @@ def merge_scan(state=None):
                 merged.append(refreshed)
                 seen_homes.add(key)
     state.runtimes = merged
-    for tool in ("node", "java"):
+    for tool in TOOLS:
         current = state.current_runtime(tool)
         if current is None:
             guessed = detect.infer_active(state.runtimes, tool)
@@ -73,12 +73,15 @@ def use(tool, query, state=None):
 def import_path(tool, path):
     # type: (str, str) -> Runtime
     home = Path(os.path.expanduser(path)).resolve()
-    if tool == "node":
-        runtime = detect.inspect_node(home)
-    elif tool == "java":
-        runtime = detect.inspect_java(home)
-    else:
+    inspector = {
+        "node": detect.inspect_node,
+        "java": detect.inspect_java,
+        "maven": detect.inspect_maven,
+        "gradle": detect.inspect_gradle,
+    }.get(tool)
+    if inspector is None:
         raise ValueError("不支持的工具：{}".format(tool))
+    runtime = inspector(home)
     if runtime is None:
         raise LookupError("目录里没有可用的 {}：{}".format(tool, home))
     runtime.source = "imported"
@@ -98,29 +101,94 @@ def ensure_applied(state=None):
     return state
 
 
+def export_versions(path):
+    # type: (str) -> str
+    """Write the selected versions to a shareable .devswitch file."""
+    import json
+
+    state = load_state()
+    tools = {}
+    for tool in TOOLS:
+        runtime = state.current_runtime(tool)
+        if runtime is not None:
+            tools[tool] = runtime.version
+    payload = {"devswitch": 1, "tools": tools}
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return str(Path(path))
+
+
+def apply_versions(path, install_missing=False, mirror=None):
+    # type: (str, bool, Optional[str]) -> List[Tuple[str, str, str]]
+    """Apply a .devswitch file: switch each tool to the recorded version.
+    Returns [(tool, version, result)] with result in
+    switched / installed / missing-version / unknown-tool / failed: …"""
+    import json
+
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("无法读取 {}: {}".format(path, exc))
+    results = []
+    for tool, version in ((payload or {}).get("tools") or {}).items():
+        if tool not in TOOLS:
+            results.append((tool, version, "unknown-tool"))
+            continue
+        try:
+            use(tool, version)
+            results.append((tool, version, "switched"))
+        except LookupError:
+            if not install_missing:
+                results.append((tool, version, "missing-version"))
+                continue
+            try:
+                from . import downloader
+
+                downloader.install_runtime(tool, version.split(".")[0], mirror)
+                results.append((tool, version, "installed"))
+            except (LookupError, ValueError, OSError) as exc:
+                results.append((tool, version, "failed: {}".format(exc)))
+    return results
+
+
 WINDOWS_NODE_TARGETS = {
     "node": "node.exe",
     "npm": "npm.cmd",
     "npx": "npx.cmd",
     "corepack": "corepack.cmd",
 }
+WINDOWS_BUILDTOOL_TARGETS = {
+    "mvn": "mvn.cmd",
+    "mvnDebug": "mvnDebug.cmd",
+    "gradle": "gradle.bat",
+}
 
 
 def which_binary(name):
     # type: (str) -> Optional[str]
     state = load_state()
-    if name in ("java-home", "JAVA_HOME"):
-        runtime = state.current_runtime("java")
-        return runtime.home if runtime else None
-    if name in ("node-home",):
-        runtime = state.current_runtime("node")
-        return runtime.home if runtime else None
+    # <tool>-home / <TOOL>_HOME / 大写工具名 → home 目录；裸命令名走下面的二进制分支
+    for tool in TOOLS:
+        if name in (tool + "-home", tool.upper() + "_HOME", tool.upper()):
+            runtime = state.current_runtime(tool)
+            return runtime.home if runtime else None
     if name in ("node", "npm", "npx", "corepack"):
         runtime = state.current_runtime("node")
         if runtime is None:
             return None
         if paths.IS_WINDOWS:
             candidate = Path(runtime.home) / WINDOWS_NODE_TARGETS[name]
+        else:
+            candidate = Path(runtime.home) / "bin" / name
+        return str(candidate) if candidate.exists() else None
+    if name in ("mvn", "mvnDebug", "gradle"):
+        tool = "maven" if name.startswith("mvn") else "gradle"
+        runtime = state.current_runtime(tool)
+        if runtime is None:
+            return None
+        if paths.IS_WINDOWS:
+            candidate = Path(runtime.home) / "bin" / WINDOWS_BUILDTOOL_TARGETS[name]
         else:
             candidate = Path(runtime.home) / "bin" / name
         return str(candidate) if candidate.exists() else None
@@ -210,16 +278,19 @@ def doctor_issues():
                     ),
                 )
             )
-        java = state.current_runtime("java")
-        if java is not None:
-            reg_home = winenv.get_user_java_home()
-            if not reg_home or _norm(os.path.normpath(reg_home)) != _norm(os.path.normpath(java.home)):
+        for tool, var in apply.TOOL_HOME_VARS.items():
+            runtime = state.current_runtime(tool)
+            if runtime is None:
+                continue
+            reg_home = winenv.get_user_value(var)
+            reg_home = reg_home[0] if reg_home else None
+            if not reg_home or _norm(os.path.normpath(reg_home)) != _norm(os.path.normpath(runtime.home)):
                 issues.append(
                     (
                         "warn",
-                        "java-home-registry",
-                        "用户环境变量 JAVA_HOME（注册表）与当前选中版本不一致：{}。".format(
-                            reg_home or "未设置"
+                        tool + "-home-registry",
+                        "用户环境变量 {}（注册表）与当前选中版本不一致：{}。".format(
+                            var, reg_home or "未设置"
                         ),
                     )
                 )
@@ -228,11 +299,12 @@ def doctor_issues():
     if not env_probe.exists():
         issues.append(("error", "no-env", "还没有生成切换配置，先运行 devswitch scan。"))
 
+    probe_shims = {"node": ("node", "npm"), "java": ("java", "javac"),
+                   "maven": ("mvn",), "gradle": ("gradle",)}
     shim_names = []
-    if state.current_runtime("node") is not None:
-        shim_names.extend(("node", "npm"))
-    if state.current_runtime("java") is not None:
-        shim_names.extend(("java", "javac"))
+    for tool, names in probe_shims.items():
+        if state.current_runtime(tool) is not None:
+            shim_names.extend(names)
     for name in shim_names:
         shim = paths.local_bin() / paths.shim_filename(name)
         if not shim.exists():
@@ -263,8 +335,8 @@ def doctor_issues():
             )
         )
 
-    labels = {"node": "Node.js", "java": "Java"}
-    for tool in ("node", "java"):
+    labels = TOOL_LABELS
+    for tool in TOOLS:
         if not state.for_tool(tool):
             issues.append(
                 (

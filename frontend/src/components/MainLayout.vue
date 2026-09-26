@@ -25,6 +25,19 @@ import type { Runtime } from '../types'
 const message = useMessage()
 const showAbout = ref(false)
 
+const TOOL_LABELS: Record<string, string> = {
+  node: 'Node.js',
+  java: 'Java',
+  maven: 'Maven',
+  gradle: 'Gradle'
+}
+const TOOL_COMMANDS: Record<string, string> = {
+  node: 'node / npm',
+  java: 'java / javac',
+  maven: 'mvn',
+  gradle: 'gradle'
+}
+
 const current = computed(() => {
   if (store.page === 'doctor') return null
   return store.current[store.page] || null
@@ -94,6 +107,22 @@ function useHome(home: string) {
               <span style="display: inline-flex; align-items: center; gap: 6px">
                 <BrandLogo kind="java" />
                 Java
+              </span>
+            </template>
+          </NTabPane>
+          <NTabPane name="maven">
+            <template #tab>
+              <span style="display: inline-flex; align-items: center; gap: 6px">
+                <BrandLogo kind="java" />
+                Maven
+              </span>
+            </template>
+          </NTabPane>
+          <NTabPane name="gradle">
+            <template #tab>
+              <span style="display: inline-flex; align-items: center; gap: 6px">
+                <BrandLogo kind="java" />
+                Gradle
               </span>
             </template>
           </NTabPane>
@@ -205,11 +234,11 @@ function useHome(home: string) {
 
         <NEmpty
           v-else-if="!selectedRuntime"
-          :description="
-            store.runtimes.length
-              ? '从左侧选择一个版本，或点右上角「重新扫描」'
-              : '安装后点重新扫描，或导入安装目录'
-          "
+              :description="
+                store.runtimes.length
+                  ? '从左侧选择一个版本，或点右上角「重新扫描」'
+                  : `本机没有发现 ${TOOL_LABELS[store.page] || '运行时'}`
+              "
         />
 
         <NCard v-else size="small" style="max-width: 720px">
@@ -227,7 +256,7 @@ function useHome(home: string) {
           <NText depth="3" style="display: block; margin-bottom: 4px">来源</NText>
           <NText style="display: block; margin-bottom: 16px">{{ sourceText(selectedRuntime.source) }}</NText>
           <NText v-if="isActive(selectedRuntime)" depth="3">
-            当前终端的 {{ selectedRuntime.tool === 'java' ? 'java / javac' : 'node / npm' }} 已指向这个版本。
+            当前终端的 {{ TOOL_COMMANDS[selectedRuntime.tool] || selectedRuntime.tool }} 已指向这个版本。
           </NText>
           <NButton v-else type="primary" @click="useHome(selectedRuntime.home)">切换到此版本</NButton>
         </NCard>
@@ -242,9 +271,11 @@ function useHome(home: string) {
       <NText depth="3" style="font-size: 12px">
         <code>{{ store.paths.localBin || 'shim 目录' }}</code>
       </NText>
-      <NText depth="3" style="font-size: 12px">
-        node {{ store.current.node?.version || '—' }} · java {{ store.current.java?.version || '—' }}
-      </NText>
+        <NText depth="3" style="font-size: 12px">
+          <span v-for="tool in ['node', 'java', 'maven', 'gradle']" :key="tool" style="margin-right: 12px">
+            {{ tool }} {{ store.current[tool]?.version || '—' }}
+          </span>
+        </NText>
       <div style="flex: 1"></div>
       <NText depth="3" style="font-size: 12px">切换后当前终端立即生效</NText>
       <NText depth="3" style="font-size: 12px">v{{ store.version || '1.0.0' }}</NText>

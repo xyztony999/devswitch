@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 
-TOOLS = ("node", "java")
+TOOLS = ("node", "java", "maven", "gradle")
 
 NODE_SHIMS = ("node", "npm", "npx", "corepack")
 JAVA_SHIMS = (
@@ -20,6 +20,10 @@ JAVA_SHIMS = (
     "jps",
     "jcmd",
 )
+MAVEN_SHIMS = ("mvn", "mvnDebug")
+GRADLE_SHIMS = ("gradle",)
+
+TOOL_LABELS = {"node": "Node.js", "java": "Java", "maven": "Maven", "gradle": "Gradle"}
 
 
 @dataclass
@@ -68,7 +72,7 @@ class Runtime:
 @dataclass
 class State:
     schema: int = 1
-    current: Dict[str, str] = field(default_factory=lambda: {"node": "", "java": ""})
+    current: Dict[str, str] = field(default_factory=lambda: {tool: "" for tool in TOOLS})
     runtimes: List[Runtime] = field(default_factory=list)
 
     def to_dict(self):
@@ -83,7 +87,7 @@ class State:
         # type: (Dict[str, Any]) -> State
         data = data or {}
         runtimes = [Runtime.from_dict(item) for item in data.get("runtimes") or []]
-        current = {"node": "", "java": ""}
+        current = {tool: "" for tool in TOOLS}
         current.update(data.get("current") or {})
         return cls(schema=int(data.get("schema") or 1), current=current, runtimes=runtimes)
 

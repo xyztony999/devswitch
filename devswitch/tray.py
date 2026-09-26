@@ -12,6 +12,7 @@ gi.require_version("AppIndicator3", "0.1")
 from gi.repository import AppIndicator3, Gtk
 
 from . import __app_name__, paths
+from .models import TOOL_LABELS
 from .store import load_state
 
 
@@ -80,6 +81,8 @@ class TrayController(object):
 
         menu.append(self._tool_submenu("Node.js", "node", state))
         menu.append(self._tool_submenu("Java", "java", state))
+        menu.append(self._tool_submenu("Maven", "maven", state))
+        menu.append(self._tool_submenu("Gradle", "gradle", state))
         menu.append(Gtk.SeparatorMenuItem())
 
         quit_item = Gtk.MenuItem(label="退出")

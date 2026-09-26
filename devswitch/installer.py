@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Windows 安装/卸载实现。
 
-入口有两个：`devswitch install` 子命令（命令行兜底），以及安装向导
+入口有两个：`devswitch setup` 子命令（命令行兜底），以及安装向导
 （devswitch.iss 编译出的 setup.exe，最终也调用这里）。Linux 一直使用 install.sh。
 
 只做用户级操作：拷贝文件、写启动器、改用户 PATH，无需管理员。
@@ -135,7 +135,7 @@ def run_install(skip_gui_deps=False, in_place=False):
         print("devswitch install 目前用于 Windows；Linux 请执行 ./install.sh", file=sys.stderr)
         return 1
     if not in_place and is_installed_copy():
-        print("当前已在安装副本里运行。请用安装包，或克隆仓库后执行 python -m devswitch install。", file=sys.stderr)
+        print("当前已在安装副本里运行。请用安装包，或克隆仓库后执行 python -m devswitch setup。", file=sys.stderr)
         return 1
 
     from . import winenv

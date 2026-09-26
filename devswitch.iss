@@ -8,7 +8,7 @@
 ; 语言：  installer\ChineseSimplified.isl 存在时提供简中向导（CI 会自动下载），
 ;         缺失时使用英文向导
 #ifndef AppVersion
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #endif
 #ifndef ArchMode
 #define ArchMode "x64compatible"
@@ -67,8 +67,8 @@ Name: "{autodesktop}\DevSwitch"; Filename: "{app}\..\bin\devswitch-gui.cmd"; Wor
 
 [Run]
 ; 核心配置（shim、启动器、用户 PATH、shell 钩子、GUI 依赖）复用包内安装逻辑
-Filename: "{cmd}"; Parameters: "/C py -3 -m devswitch install --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: PyLauncherExists
-Filename: "{cmd}"; Parameters: "/C python -m devswitch install --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: NotPyLauncherExists
+Filename: "{cmd}"; Parameters: "/C py -3 -m devswitch setup --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: PyLauncherExists
+Filename: "{cmd}"; Parameters: "/C python -m devswitch setup --in-place"; WorkingDir: "{app}"; StatusMsg: "正在配置 DevSwitch（shim / PATH / 钩子）……"; Check: NotPyLauncherExists
 Filename: "{app}\..\bin\devswitch-gui.cmd"; Description: "运行 DevSwitch / Launch DevSwitch"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

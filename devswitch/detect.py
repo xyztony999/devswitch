@@ -360,38 +360,119 @@ def _candidate_java_homes():
     return _unique_paths(found)
 
 
+def _tool_binary_name(tool):
+    # type: (str) -> str
+    if paths.IS_WINDOWS:
+        return {"node": "node.exe", "java": "java.exe", "maven": "mvn.cmd", "gradle": "gradle.bat"}.get(tool, tool)
+    return {"node": "node", "java": "java", "maven": "mvn", "gradle": "gradle"}.get(tool, tool)
+
+
+def inspect_maven(home):
+    # type: (Path) -> Optional[Runtime]
+    home = Path(home)
+    binary = home / "bin" / ("mvn.cmd" if paths.IS_WINDOWS else "mvn")
+    if not binary.is_file():
+        return None
+    output = _run([str(binary), "-v"], timeout=20)
+    match = re.search(r"Apache Maven\s+([0-9][\w.\-]*)", output)
+    if not match:
+        return None
+    version = match.group(1)
+    return Runtime(
+        tool="maven",
+        version=version,
+        major=major_of("maven", version),
+        home=str(home),
+        binary=str(binary),
+        source="system" if _looks_system(home) else "local",
+        label="Apache Maven {}".format(version),
+        vendor="Apache",
+    )
+
+
+def inspect_gradle(home):
+    # type: (Path) -> Optional[Runtime]
+    home = Path(home)
+    binary = home / "bin" / ("gradle.bat" if paths.IS_WINDOWS else "gradle")
+    if not binary.is_file():
+        return None
+    output = _run([str(binary), "--version", "--offline"], timeout=30)
+    match = re.search(r"Gradle\s+([0-9][\w.\-]*)", output)
+    if not match:
+        return None
+    version = match.group(1)
+    return Runtime(
+        tool="gradle",
+        version=version,
+        major=major_of("gradle", version),
+        home=str(home),
+        binary=str(binary),
+        source="system" if _looks_system(home) else "local",
+        label="Gradle {}".format(version),
+        vendor="Gradle",
+    )
+
+
+def _candidate_buildtool_homes(tool):
+    # type: (str) -> List[Path]
+    home = paths.home()
+    if paths.IS_WINDOWS:
+        patterns = [
+            str(home / ("apache-maven-*" if tool == "maven" else "gradle-*")),
+            str(home / ".local" / "share" / ("apache-maven-*" if tool == "maven" else "gradle-*")),
+            str(home / "scoop" / "apps" / ("maven" if tool == "maven" else "gradle") / "*"),
+        ]
+        program_files = [
+            os.environ.get(var)
+            for var in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432")
+        ]
+        for base in program_files:
+            if base:
+                patterns.append(os.path.join(base, "apache-maven-*" if tool == "maven" else "*gradle*"))
+    else:
+        patterns = [
+            str(home / ("apache-maven-*" if tool == "maven" else "gradle-*")),
+            str(home / ".sdkman" / "candidates" / tool / "*"),
+            "/opt/apache-maven-*" if tool == "maven" else "/opt/gradle-*",
+            "/usr/share/" + tool + "*",
+        ]
+    found = _glob_all(patterns)
+    for binary in _which_all("mvn" if tool == "maven" else "gradle"):
+        if _is_shim(binary):
+            continue
+        derived = binary.parent.parent
+        found.append(derived)
+    return _unique_paths(found)
+
+
 def scan_runtimes():
     # type: () -> List[Runtime]
     found = []
     seen = set()  # type: Set[str]
-    for home in _candidate_node_homes():
-        runtime = inspect_node(home)
-        if runtime is None:
-            continue
-        key = "node:" + os.path.normcase(runtime.binary) if paths.IS_WINDOWS else "node:" + runtime.binary
-        if key in seen:
-            continue
-        seen.add(key)
-        found.append(runtime)
-    for home in _candidate_java_homes():
-        runtime = inspect_java(home)
-        if runtime is None:
-            continue
-        key = "java:" + os.path.normcase(runtime.binary) if paths.IS_WINDOWS else "java:" + runtime.binary
-        if key in seen:
-            continue
-        seen.add(key)
-        found.append(runtime)
+    inspectors = [
+        ("node", _candidate_node_homes, inspect_node),
+        ("java", _candidate_java_homes, inspect_java),
+        ("maven", lambda: _candidate_buildtool_homes("maven"), inspect_maven),
+        ("gradle", lambda: _candidate_buildtool_homes("gradle"), inspect_gradle),
+    ]
+    for tool, candidates, inspector in inspectors:
+        for home in candidates():
+            runtime = inspector(home)
+            if runtime is None:
+                continue
+            key = tool + ":" + (os.path.normcase(runtime.binary) if paths.IS_WINDOWS else runtime.binary)
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(runtime)
     found.sort(key=lambda item: (item.tool, item.version), reverse=True)
     return found
 
 
 def infer_active(runtimes, tool):
     # type: (List[Runtime], str) -> Optional[Runtime]
-    binary_name = "node.exe" if (tool == "node" and paths.IS_WINDOWS) else (
-        "java.exe" if (tool == "java" and paths.IS_WINDOWS) else ("node" if tool == "node" else "java")
-    )
-    which = shutil.which(binary_name)
+    binary_name = _tool_binary_name(tool)
+    which = shutil.which("mvn" if tool == "maven" else "gradle" if tool == "gradle" else binary_name)
     if which:
         path = Path(which)
         if not _is_shim(path):

@@ -172,7 +172,7 @@ def cmd_gui(_args):
     return run_gui()
 
 
-def cmd_install(args):
+def cmd_setup(args):
     from . import installer
 
     return installer.run_install(
@@ -185,6 +185,119 @@ def cmd_uninstall(args):
     from . import installer
 
     return installer.run_uninstall(keep_app_files=getattr(args, "keep_app_files", False))
+
+
+def cmd_install(args):
+    from . import downloader
+
+    try:
+        home, version = downloader.install_runtime(args.tool, args.version, getattr(args, "mirror", None))
+    except (LookupError, ValueError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print("已切换 {} -> {} ({})".format(args.tool, version, home))
+    print("当前终端里命令已立即生效；JAVA_HOME 对新开终端生效。")
+    return 0
+
+
+def cmd_export(args):
+    path = service.export_versions(args.file)
+    print("已导出当前版本选择到 {}".format(path))
+    return 0
+
+
+def cmd_apply(args):
+    try:
+        results = service.apply_versions(args.file, install_missing=args.install_missing,
+                                         mirror=getattr(args, "mirror", None))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    failed = False
+    for tool, version, outcome in results:
+        print("  {}  {}  {}".format(outcome, tool, version))
+        if outcome.startswith(("missing", "failed", "unknown")):
+            failed = True
+    if failed:
+        print("\n有未对齐的版本：missing-version 可先 devswitch scan，或用 --install-missing 自动下载。")
+        return 1
+    print("团队版本已对齐。")
+    return 0
+
+
+BASH_COMPLETION = """\
+_devswitch_complete() {
+  local cur cmds tools
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  cmds="scan list current use import install setup uninstall export apply which doctor hook completion update gui"
+  tools="node java maven gradle"
+  if [ "$COMP_CWORD" -eq 1 ]; then
+    COMPREPLY=($(compgen -W "$cmds" -- "$cur"))
+  else
+    case "${COMP_WORDS[1]}" in
+      use|import|install)
+        COMPREPLY=($(compgen -W "$tools" -- "$cur")) ;;
+    esac
+  fi
+}
+complete -F _devswitch_complete devswitch
+"""
+
+ZSH_COMPLETION = """\
+#compdef devswitch
+_devswitch() {
+  local -a cmds tools
+  cmds=(scan list current use import install setup uninstall export apply which doctor hook completion update gui)
+  tools=(node java maven gradle)
+  if (( CURRENT == 2 )); then
+    _describe 'command' cmds
+  else
+    case $words[2] in
+      use|import|install) _describe 'tool' tools ;;
+    esac
+  fi
+}
+_compdef _devswitch devswitch
+"""
+
+PWSH_COMPLETION = """\
+Register-ArgumentCompleter -CommandName devswitch -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $cmds = 'scan','list','current','use','import','install','setup','uninstall',
+          'export','apply','which','doctor','hook','completion','update','gui'
+  $tools = 'node','java','maven','gradle'
+  $prior = $commandAst.CommandElements | Select-Object -Skip 1 -First 1
+  if ($null -eq $prior -or $prior -is [System.Management.Automation.Language.CommandAst]) {
+    $cmds | Where-Object { $_ -like "$wordToComplete*" }
+  } elseif ($prior.Value -in @('use','import','install')) {
+    $tools | Where-Object { $_ -like "$wordToComplete*" }
+  }
+}
+"""
+
+
+def cmd_completion(args):
+    scripts = {"bash": BASH_COMPLETION, "zsh": ZSH_COMPLETION, "powershell": PWSH_COMPLETION}
+    sys.stdout.write(scripts[args.shell])
+    return 0
+
+
+def cmd_update(_args):
+    from . import downloader
+
+    try:
+        latest = downloader.latest_release_version()
+    except (LookupError, ValueError, OSError) as exc:
+        print("检查更新失败：{}".format(exc), file=sys.stderr)
+        return 1
+    from . import __version__
+
+    if latest == __version__:
+        print("已是最新版本（{}）。".format(__version__))
+    else:
+        print("发现新版本：{}（当前 {}）。".format(latest, __version__))
+        print("下载：https://github.com/xyztony999/devswitch/releases/latest")
+    return 0
 
 
 def build_parser():
@@ -233,13 +346,42 @@ def build_parser():
     p_gui = sub.add_parser("gui", help="打开图形界面")
     p_gui.set_defaults(func=cmd_gui)
 
+    p_setup = sub.add_parser(
+        "setup",
+        help="安装/刷新 DevSwitch 自身到用户目录（推荐直接用安装包）",
+    )
+    p_setup.add_argument("--skip-gui-deps", action="store_true", help="跳过 pywebview/pystray/Pillow 安装")
+    p_setup.add_argument("--in-place", action="store_true", help="安装向导内部使用：包已在目标目录")
+    p_setup.set_defaults(func=cmd_setup)
+
     p_install = sub.add_parser(
         "install",
-        help="安装/刷新到用户目录（推荐直接用安装包）",
+        help="下载并安装一个运行时，例如：devswitch install node 22",
     )
-    p_install.add_argument("--skip-gui-deps", action="store_true", help="跳过 pywebview/pystray/Pillow 安装")
-    p_install.add_argument("--in-place", action="store_true", help="安装向导内部使用：包已在目标目录")
+    p_install.add_argument("tool", choices=("node", "java"), help="node 或 java")
+    p_install.add_argument("version", help="大版本号，如 22 / 17（自动取该系列最新）")
+    p_install.add_argument(
+        "--mirror", choices=("official", "npmmirror", "tuna"),
+        help="下载镜像（默认 official；也可用环境变量 DEVSWITCH_MIRROR）",
+    )
     p_install.set_defaults(func=cmd_install)
+
+    p_export = sub.add_parser("export", help="导出当前版本选择到 .devswitch 文件")
+    p_export.add_argument("file", nargs="?", default=".devswitch")
+    p_export.set_defaults(func=cmd_export)
+
+    p_apply = sub.add_parser("apply", help="按 .devswitch 文件对齐版本")
+    p_apply.add_argument("file")
+    p_apply.add_argument("--install-missing", action="store_true", help="缺少的版本自动下载")
+    p_apply.add_argument("--mirror", choices=("official", "npmmirror", "tuna"))
+    p_apply.set_defaults(func=cmd_apply)
+
+    p_completion = sub.add_parser("completion", help="输出 shell 补全脚本（bash/zsh/powershell）")
+    p_completion.add_argument("shell", choices=("bash", "zsh", "powershell"))
+    p_completion.set_defaults(func=cmd_completion)
+
+    p_update = sub.add_parser("update", help="检查是否有新版本（只读，不自动升级）")
+    p_update.set_defaults(func=cmd_update)
 
     p_uninstall = sub.add_parser("uninstall", help="卸载并清理（保留 state.json 与备份）")
     p_uninstall.add_argument("--keep-app-files", action="store_true", help="卸载向导内部使用：文件由向导删除")

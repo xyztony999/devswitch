@@ -61,6 +61,8 @@ class WinTray(object):
             pystray.Menu.SEPARATOR,
             self._submenu("Node.js", "node", state),
             self._submenu("Java", "java", state),
+            self._submenu("Maven", "maven", state),
+            self._submenu("Gradle", "gradle", state),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("退出", lambda _item: self.app.quit_from_tray()),
         )

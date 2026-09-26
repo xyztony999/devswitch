@@ -167,11 +167,15 @@ def test_windows_env_sh_gdbash(win):
     apply.write_env_sh(_win_state())
     text = paths.env_file().read_text(encoding="utf-8")
     assert 'DEVSWITCH_NODE_HOME="/e/Program Files/nodejs"' in text
+    assert 'DEVSWITCH_JAVA_HOME="/e/Program Files/Java/jdk-17"' in text
+    # mvn.cmd 等原生工具需要 Windows 形式的 JAVA_HOME
     assert 'DEVSWITCH_JAVA_HOME_WIN="E:\\Program Files\\Java\\jdk-17"' in text
-    assert 'DEVSWITCH_JAVA_HOME_MSYS="/e/Program Files/Java/jdk-17"' in text
+    assert 'export JAVA_HOME="${DEVSWITCH_JAVA_HOME_WIN:-$DEVSWITCH_JAVA_HOME}"' in text
+    assert 'export MAVEN_HOME="$DEVSWITCH_MAVEN_HOME"' in text
+    assert 'export GRADLE_HOME="$DEVSWITCH_GRADLE_HOME"' in text
     assert "_devswitch_front" in text
-    # PATH entries must be colon-safe (no C:\ inside the PATH list)
-    assert "_devswitch_front \"/" in text
+    # PATH 前置必须用 MSYS 形式变量（不能含盘符冒号）
+    assert '_devswitch_front "$DEVSWITCH_JAVA_HOME/bin"' in text
 
 
 def test_windows_hook_snippet_is_msys(win):
@@ -199,11 +203,11 @@ def test_windows_write_user_env_sets_registry(win, monkeypatch):
 
     monkeypatch.setattr(winenv, "ensure_path_entry",
                         lambda target, first=True: calls.append(("path", target)) or True)
-    monkeypatch.setattr(winenv, "set_user_java_home",
-                        lambda home: calls.append(("java", home)) or True)
+    monkeypatch.setattr(winenv, "set_user_value",
+                        lambda name, value: calls.append((name, value)) or True)
     apply.write_user_env(_win_state())
     assert ("path", str(win.local_bin)) in calls
-    assert ("java", r"E:\Program Files\Java\jdk-17") in calls
+    assert ("JAVA_HOME", r"E:\Program Files\Java\jdk-17") in calls
 
 
 def test_hook_install_and_replace_roundtrip(lin):
