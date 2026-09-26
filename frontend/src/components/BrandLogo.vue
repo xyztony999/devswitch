@@ -1,9 +1,16 @@
 <script setup lang="ts">
-defineProps<{ kind: 'node' | 'java' | 'maven' | 'gradle'; large?: boolean }>()
+import { computed } from 'vue'
+
+const props = defineProps<{
+  kind: 'node' | 'java' | 'maven' | 'gradle'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+}>()
+
+const sizeClass = computed(() => 'tool-logo-' + (props.size || 'md'))
 </script>
 
 <template>
-  <span :class="large ? 'card-logo' : 'brand-logo'" aria-hidden="true">
+  <span class="tool-logo" :class="sizeClass" aria-hidden="true">
     <svg v-if="kind === 'node'" viewBox="0 0 32 32">
       <path fill="#5FA04E" d="M16 2.1 28.7 9.4v13.2L16 29.9 3.3 22.6V9.4L16 2.1z" />
       <path fill="#3F7E33" d="M16 2.1v27.8l12.7-7.3V9.4L16 2.1z" />
@@ -55,3 +62,32 @@ defineProps<{ kind: 'node' | 'java' | 'maven' | 'gradle'; large?: boolean }>()
     </svg>
   </span>
 </template>
+
+<style>
+.tool-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.tool-logo svg {
+  display: block;
+}
+.tool-logo-sm svg {
+  width: 14px;
+  height: 14px;
+}
+.tool-logo-md svg {
+  width: 18px;
+  height: 18px;
+}
+.tool-logo-lg svg {
+  width: 22px;
+  height: 22px;
+}
+.tool-logo-xl svg {
+  width: 30px;
+  height: 30px;
+}
+</style>
