@@ -7,3 +7,8 @@ bin/devswitch-gui text eol=lf
 tests/golden/** text eol=lf
 *.desktop text eol=lf
 devswitch/ui/dist/index.html text eol=lf
+
+# Go toolchain requires LF (go.sum checksums break on CRLF).
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
