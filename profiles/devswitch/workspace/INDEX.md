@@ -1,10 +1,91 @@
 ---
-pipeline: []
-reference: []
+pipeline:
+  - { id: business-arch, title: "业务架构 BA v1.0（3 L2 / 8 L3 / 15 L4）", path: "00-architecture/business-arch.md", status: complete }
+  - { id: application-arch, title: "应用架构 AA v1.0（C×2 S×5 D×1 P×2）", path: "00-architecture/application-arch.md", status: complete }
+  - { id: function-list, title: "功能清单 FL v1.0（开发者单章）", path: "00-architecture/function-list.md", status: complete }
+  - { id: adr-001, title: "ADR-001 技术栈池接入决策 v1.0", path: "00-architecture/adr-001-techstack-pool.md", status: complete }
+  - { id: enum-pool, title: "枚举池 v1.0（TOOL/SOURCE/MIRROR/ISSUE-LEVEL）", path: "01-solution/common-spec/enum-pool.md", status: complete }
+  - { id: prd-androidsdk, title: "PRD androidsdk（主数据类，完备性 9/9）", path: "02-detailed/prd/androidsdk.md", status: complete }
+  - { id: api-androidsdk, title: "API androidsdk v1.0（CLI 命令 + GUI op 契约）", path: "02-detailed/api/api-androidsdk.md", status: complete }
+  - { id: interaction-androidsdk, title: "PageSpec androidsdk v1.0（第五导航页）", path: "02-detailed/interaction/androidsdk-page.md", status: complete }
+  - { id: gate1-androidsdk, title: "Gate 1 报告 androidsdk（PASS）", path: "05-reports/gate1-androidsdk.md", status: complete }
+  - { id: gate1-techstack-pool, title: "Gate 1 报告 techstack-pool-decision（PASS）", path: "05-reports/gate1-techstack-pool.md", status: complete }
+reference:
+  - { title: "引擎 Profile 契约（02-profile-spec）", path: "{engine.doc.profile-spec}" }
+  - { title: "引擎接入指南（03-extension-guide）", path: "{engine.doc.extension-guide}" }
 modules:
   - name: onboarding
     title: "接入与知识库冷启动"
+    domain: platform
     stages:
       requirement: { status: complete, note: "profile 骨架 + README 溯源知识库（2026-09-27）" }
-      design: { status: todo, note: "首个模块需求进 /design 后展开" }
+      api: { status: complete, note: "N/A：接入事务，无设计产物" }
+      interaction: { status: complete, note: "N/A" }
+  - name: androidsdk
+    title: "Android SDK + platform-tools 纳管"
+    domain: core
+    stages:
+      requirement: { status: complete, note: "D0-D2 完成（四项决策/PRD 9/9），2026-10-08" }
+      api: { status: complete, note: "D3 api-androidsdk v1.0（CLI 命令 + GUI op 契约）" }
+      interaction: { status: complete, note: "D4 androidsdk-page v1.0" }
+      backend: { status: todo, note: "B1+ 未开始；按 API 文档实现（无栈 manifest，Go 仓内模块）" }
+      validation: { status: todo, note: "Gate 2 待代码阶段" }
+    gates:
+      gate1: { status: pass, note: "gate1-androidsdk.md，2026-10-08" }
+      gate2: { status: pending, note: "依赖 backend 完成" }
+  - name: techstack-pool-decision
+    title: "技术栈池接入决策（ADR-001）"
+    domain: platform
+    stages:
+      requirement: { status: complete, note: "D0 澄清+决策分析 ADR-001 v1.0；D2 以 §2.6 等价物覆盖" }
+      api: { status: complete, note: "N/A：治理决策模块无接口产物（ADR §1.3 裁剪）" }
+      interaction: { status: complete, note: "N/A：无 UI 载体（ADR §1.3 裁剪）" }
+      backend: { status: todo, note: "实施清单 I1-I6 待编码阶段（规则文件+assets 挂载）" }
+    gates:
+      gate1: { status: pass, note: "gate1-techstack-pool.md；G1-03~08 N/A 已注明原因" }
+      gate2: { status: pending, note: "I1-I6 落地后执行" }
 ---
+
+# DevSwitch 设计工作区索引
+
+| 属性 | 值 |
+|------|-----|
+| Profile | devswitch（business，无技术栈依赖） |
+| 更新 | 2026-10-08 |
+
+## 文档清单
+
+```
+workspace/
+├── INDEX.md                                ← 本索引
+├── 00-architecture/
+│   ├── business-arch.md                    BA v1.0
+│   ├── application-arch.md                 AA v1.0
+│   ├── function-list.md                    FL v1.0
+│   └── adr-001-techstack-pool.md           ADR-001 技术栈池决策
+├── 01-solution/common-spec/
+│   ├── enum-pool.md                        枚举池 v1.0
+│   ├── common-enums.md                     （占位）
+│   └── select-pool.md                      （占位）
+├── 02-detailed/
+│   ├── prd/androidsdk.md
+│   ├── api/api-androidsdk.md
+│   └── interaction/androidsdk-page.md
+└── 05-reports/
+    ├── gate1-androidsdk.md                 Gate 1 PASS
+    └── gate1-techstack-pool.md             Gate 1 PASS
+```
+
+## 变更历史
+
+| 日期 | 变更 |
+|------|------|
+| 2026-10-08 | androidsdk 模块 D0-D4 + Gate 1 PASS（并行会话产物自根 workspace/ 迁入并合并） |
+| 2026-10-08 | techstack-pool-decision 模块：ADR-001 决策"暂不入栈池（方案 C）"+ Gate 1 PASS |
+
+## 遗留决策点（编码阶段复核）
+
+1. 腾讯镜像 cmdline-tools 包名核实（androidsdk API D5）
+2. platform-tools 会话 PATH 钩子产物的 golden 新用例（androidsdk PRD §9）
+3. ADR-001 实施清单 I1-I6（go-cli-conventions 规则文件 + assets 挂载 + check 复验）
+4. ADR-001 升级触发条件 T1/T2/T3 任一达成时，按蓝图立项 go-cli 栈

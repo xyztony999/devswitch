@@ -1,0 +1,11 @@
+{
+  "apiVersion": 1,
+  "active": "devswitch",
+  "stacks": [],
+  "mounts": [],
+  "claudemd_imports": [
+    "@profiles/devswitch/CLAUDE.md"
+  ],
+  "created_with": "engine-cli 0.4.0",
+  "ts": "2026-10-02T12:54:07.187Z"
+}
