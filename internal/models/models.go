@@ -11,48 +11,53 @@ import (
 type Tool string
 
 const (
-	Node   Tool = "node"
-	Java   Tool = "java"
-	Maven  Tool = "maven"
-	Gradle Tool = "gradle"
+	Node       Tool = "node"
+	Java       Tool = "java"
+	Maven      Tool = "maven"
+	Gradle     Tool = "gradle"
+	AndroidSDK Tool = "androidsdk"
 )
 
-var Tools = []Tool{Node, Java, Maven, Gradle}
+var Tools = []Tool{Node, Java, Maven, Gradle, AndroidSDK}
 
 // AppVersion 全局唯一版本号来源，发布构建用
 // -ldflags "-X .../internal/models.AppVersion=x.y.z" 注入。
-var AppVersion = "2.0.6-dev"
+var AppVersion = "2.1.0-dev"
 
 var ToolLabels = map[Tool]string{
 	Node: "Node.js", Java: "Java", Maven: "Maven", Gradle: "Gradle",
+	AndroidSDK: "Android SDK",
 }
 
 // 各工具的 shim 命令名（不带平台后缀）。
 var (
-	NodeShims   = []string{"node", "npm", "npx", "corepack"}
-	JavaShims   = []string{"java", "javac", "jar", "javadoc", "javap", "jshell", "keytool", "jps", "jcmd"}
-	MavenShims  = []string{"mvn", "mvnDebug"}
-	GradleShims = []string{"gradle"}
+	NodeShims       = []string{"node", "npm", "npx", "corepack"}
+	JavaShims       = []string{"java", "javac", "jar", "javadoc", "javap", "jshell", "keytool", "jps", "jcmd"}
+	MavenShims      = []string{"mvn", "mvnDebug"}
+	GradleShims     = []string{"gradle"}
+	AndroidSDKShims = []string{"adb", "fastboot"}
 )
 
 var ToolShims = map[Tool][]string{
 	Node: NodeShims, Java: JavaShims, Maven: MavenShims, Gradle: GradleShims,
+	AndroidSDK: AndroidSDKShims,
 }
 
 // ToolHomeVars 是各工具暴露给 IDE / 构建脚本的环境变量名。
 var ToolHomeVars = map[Tool]string{
 	Java: "JAVA_HOME", Maven: "MAVEN_HOME", Gradle: "GRADLE_HOME",
+	AndroidSDK: "ANDROID_HOME",
 }
 
 type Runtime struct {
-	Tool    Tool    `json:"tool"`
-	Version string  `json:"version"`
-	Major   string  `json:"major"`
-	Home    string  `json:"home"`
-	Binary  string  `json:"binary"`
-	Source  string  `json:"source"`
-	Label   string  `json:"label,omitempty"`
-	Vendor  string  `json:"vendor,omitempty"`
+	Tool    Tool   `json:"tool"`
+	Version string `json:"version"`
+	Major   string `json:"major"`
+	Home    string `json:"home"`
+	Binary  string `json:"binary"`
+	Source  string `json:"source"`
+	Label   string `json:"label,omitempty"`
+	Vendor  string `json:"vendor,omitempty"`
 }
 
 // Matches 与 Python 版语义一致：支持 home 路径、完整版本、大版本、前缀。
@@ -74,9 +79,9 @@ func (r *Runtime) Matches(query string) bool {
 }
 
 type State struct {
-	Schema   int                 `json:"schema"`
-	Current  map[Tool]string     `json:"current"`
-	Runtimes []Runtime           `json:"runtimes"`
+	Schema   int             `json:"schema"`
+	Current  map[Tool]string `json:"current"`
+	Runtimes []Runtime       `json:"runtimes"`
 }
 
 func NewState() State {

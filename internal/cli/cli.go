@@ -18,7 +18,7 @@ var usage = `用法：devswitch <命令> [参数]
   scan                    扫描本机已有版本
   list [tool] [--json]    查看列表，* 为当前
   current                 显示当前选中的版本
-  use <tool> <version>    切换版本（node/java/maven/gradle）
+  use <tool> <version>    切换版本（node/java/maven/gradle/androidsdk）
   install <tool> <ver>    下载安装并切换（--mirror npmmirror|tuna）
   import <tool> <path>    导入一个本地安装目录
   export [file]           导出版本选择到 .devswitch
@@ -73,7 +73,7 @@ func Main(args []string) int {
 
 func parseTool(arg string) (models.Tool, bool) {
 	switch arg {
-	case "node", "java", "maven", "gradle":
+	case "node", "java", "maven", "gradle", "androidsdk":
 		return models.Tool(arg), true
 	}
 	return "", false
@@ -193,8 +193,10 @@ func cmdInstall(args []string) int {
 		}
 	}
 	tool, ok := parseTool(toolArg)
-	if !ok || version == "" {
+	// androidsdk 走 latest 通道，版本参数可省
+	if !ok || (version == "" && tool != models.AndroidSDK) {
 		fmt.Fprintln(os.Stderr, "用法：devswitch install <node|java|maven|gradle> <大版本号> [--mirror official|npmmirror|tuna]")
+		fmt.Fprintln(os.Stderr, "      devswitch install androidsdk [--mirror official|tencent]")
 		return 1
 	}
 	home, fullVersion, err := service.InstallRuntime(tool, version, mirror)

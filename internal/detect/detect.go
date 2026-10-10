@@ -6,6 +6,7 @@
 //   - Maven：lib/maven-core-*.jar 文件名
 //   - Gradle：lib/ 下 gradle 核心 jar 文件名
 //   - Node：目录名（node-vX.Y.Z-平台-架构），Windows 系统安装再查注册表卸载信息
+//
 // 优点是毫秒级完成（无需等待 JVM 启动）；代价是无元数据的罕见布局
 // （如手工裸拷贝的二进制）不可识别，可用 devswitch import 手动补录。
 package detect
@@ -61,7 +62,7 @@ func uniquePaths(values []string) []string {
 
 // probeWhitelist：whichAll 只探测这些内部常量命令名。
 var probeWhitelist = map[string]bool{
-	"node": true, "java": true, "mvn": true, "gradle": true,
+	"node": true, "java": true, "mvn": true, "gradle": true, "adb": true,
 }
 
 // whichAll 枚举 PATH 上的全部命中（纯目录扫描，无进程执行）。
@@ -383,6 +384,7 @@ func Inspectors() map[models.Tool]func(string) *models.Runtime {
 	return map[models.Tool]func(string) *models.Runtime{
 		models.Node: inspectNode, models.Java: inspectJava,
 		models.Maven: inspectMaven, models.Gradle: inspectGradle,
+		models.AndroidSDK: inspectAndroidSDK,
 	}
 }
 
@@ -562,6 +564,7 @@ func ScanRuntimes() []models.Runtime {
 		{models.Java, candidateJavaHomes, inspectJava},
 		{models.Maven, func() []string { return candidateBuildtoolHomes(models.Maven) }, inspectMaven},
 		{models.Gradle, func() []string { return candidateBuildtoolHomes(models.Gradle) }, inspectGradle},
+		{models.AndroidSDK, candidateAndroidSDKHomes, inspectAndroidSDK},
 	}
 	found := []models.Runtime{}
 	seen := map[string]bool{}
@@ -595,8 +598,11 @@ func ScanRuntimes() []models.Runtime {
 
 func InferActive(runtimes []models.Runtime, tool models.Tool) *models.Runtime {
 	cmd := string(tool)
-	if tool == models.Maven {
+	switch tool {
+	case models.Maven:
 		cmd = "mvn"
+	case models.AndroidSDK:
+		cmd = "adb"
 	}
 	for _, binary := range whichAll(cmd) {
 		if isShim(binary) {

@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ var allowedHosts = map[string]bool{
 	"api.adoptium.net": true, "api.github.com": true,
 	"github.com": true, "objects.githubusercontent.com": true,
 	"repo.maven.apache.org": true, "dlcdn.apache.org": true, "services.gradle.org": true,
+	"dl.google.com": true,
 }
 
 func assertSafeURL(raw string) error {
@@ -201,9 +203,40 @@ func safeExtractSingleRoot(archivePath, destParent string) (string, error) {
 		return "", err
 	}
 	if err := os.Rename(filepath.Join(staging, entries[0].Name()), final); err != nil {
-		return "", err
+		// 跨卷（TMP 与目标不同盘）rename 会失败，回退为递归复制
+		if copyErr := copyTree(filepath.Join(staging, entries[0].Name()), final); copyErr != nil {
+			return "", copyErr
+		}
 	}
 	return final, nil
+}
+
+// copyTree 递归复制目录（保留常规文件权限；跨卷归位的回退路径）。
+func copyTree(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(dst, data, info.Mode().Perm())
+	}
+	if err := os.MkdirAll(dst, info.Mode().Perm()); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if err := copyTree(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func memberInside(root, target string) bool {
@@ -355,14 +388,14 @@ func runtimeArch() string {
 // ---------------------------------------------------------------------------
 
 type mirrorSetting struct {
-	NodeDist      string
-	JavaDownload  string // "" 官方 / "tuna"
+	NodeDist     string
+	JavaDownload string // "" 官方 / "tuna"
 }
 
 var mirrors = map[string]mirrorSetting{
-	"official":   {NodeDist: "https://nodejs.org/dist"},
-	"npmmirror":  {NodeDist: "https://registry.npmmirror.com/-/binary/node", JavaDownload: "tuna"},
-	"tuna":       {NodeDist: "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release", JavaDownload: "tuna"},
+	"official":  {NodeDist: "https://nodejs.org/dist"},
+	"npmmirror": {NodeDist: "https://registry.npmmirror.com/-/binary/node", JavaDownload: "tuna"},
+	"tuna":      {NodeDist: "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release", JavaDownload: "tuna"},
 }
 
 func mirrorSettingFor(mirror string) (mirrorSetting, error) {
@@ -634,6 +667,125 @@ func LatestReleaseVersion() (string, error) {
 
 // InstallTool 下载并解压到用户目录，返回安装 home。
 // 切换等编排由 service 层完成（避免循环依赖）。
+// cmdlineToolsNameRe 限定清单解析结果只能是这两种形态的文件名（防注入）。
+var cmdlineToolsNameRe = regexp.MustCompile(
+	`^commandlinetools-(?:win|linux)-[0-9]+_latest\.zip$`)
+
+// cmdlineToolsFromManifest 解析 Android 仓库清单（repository2-3.xml，与
+// sdkmanager 同源），返回当前平台的 cmdline-tools 包名。
+// 官方与腾讯镜像的字节内容一致，任意一个都可作为来源。
+// 这样避免了硬编码包名里的 build 号（它会随 Google 发布漂移）。
+func cmdlineToolsFromManifest(manifest []byte, goos string) (string, error) {
+	platform := "linux"
+	if goos == "windows" {
+		platform = "win"
+	}
+	block := regexp.MustCompile(`(?s)<remotePackage[^>]*path="cmdline-tools;latest".*?</remotePackage>`).
+		FindStringSubmatch(string(manifest))
+	if block == nil {
+		return "", fmt.Errorf("仓库清单里没有 cmdline-tools;latest 条目")
+	}
+	for _, m := range regexp.MustCompile(`<url>([^<]+)</url>`).FindAllStringSubmatch(block[0], -1) {
+		name := m[1]
+		if strings.HasPrefix(name, "commandlinetools-"+platform+"-") &&
+			cmdlineToolsNameRe.MatchString(name) {
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("仓库清单里没有 %s 平台的 cmdline-tools 包", platform)
+}
+
+// installAndroidSDK 下载 platform-tools 与 cmdline-tools（latest）归位到
+// SDK 根 ~/android-sdk。版本参数忽略（只有 latest 通道）；镜像支持官方与腾讯。
+// cmdline-tools 包名经仓库清单动态解析（build 号会漂移，不硬编码），
+// 归位为标准布局 <sdkRoot>/cmdline-tools/latest（sdkmanager 在 latest/bin）。
+func installAndroidSDK(version, mirror string) (string, error) {
+	switch mirror {
+	case "", "official", "tencent":
+	default:
+		return "", fmt.Errorf("Android SDK 仅支持 official / tencent 镜像（收到 %s）", mirror)
+	}
+	base := "https://dl.google.com/android/repository"
+	if mirror == "tencent" {
+		base = "https://mirrors.cloud.tencent.com/AndroidSDK"
+	}
+	platform := "linux"
+	if runtime.GOOS == "windows" {
+		platform = "windows"
+	}
+	sdkRoot := filepath.Join(paths.Home(), "android-sdk")
+	if err := os.MkdirAll(sdkRoot, 0o755); err != nil {
+		return "", err
+	}
+
+	// 1) platform-tools
+	fmt.Println("Android SDK platform-tools (latest)")
+	archivePath, err := downloadWithSidecar(base + "/platform-tools-latest-" + platform + ".zip")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(filepath.Dir(archivePath))
+	// platform-tools-latest zip 的唯一顶层目录是 platform-tools/，
+	// 直接归位为 <sdkRoot>/platform-tools（safeExtract 自带旧目录清理）。
+	if _, err := safeExtractSingleRoot(archivePath, sdkRoot); err != nil {
+		return "", err
+	}
+	if runtime.GOOS != "windows" {
+		for _, name := range []string{"adb", "fastboot"} {
+			_ = os.Chmod(filepath.Join(sdkRoot, "platform-tools", name), 0o755)
+		}
+	}
+
+	// 2) cmdline-tools（包名从仓库清单动态解析，避免 build 号漂移导致 404）
+	manifest, err := httpGet(base+"/repository2-3.xml", 30*time.Second)
+	if err != nil {
+		return sdkRoot, fmt.Errorf("platform-tools 已装好；读取仓库清单失败（cmdline-tools 未装）：%w", err)
+	}
+	toolsName, err := cmdlineToolsFromManifest(manifest, runtime.GOOS)
+	if err != nil {
+		return sdkRoot, fmt.Errorf("platform-tools 已装好；解析 cmdline-tools 包名失败：%w", err)
+	}
+	fmt.Println("Android SDK cmdline-tools:", toolsName)
+	toolsArchive, err := downloadWithSidecar(base + "/" + toolsName)
+	if err != nil {
+		return sdkRoot, fmt.Errorf("platform-tools 已装好；下载 cmdline-tools 失败：%w", err)
+	}
+	defer os.RemoveAll(filepath.Dir(toolsArchive))
+	// staging 建在 sdkRoot 同盘：跨卷 rename 会失败
+	staging, err := os.MkdirTemp(sdkRoot, ".ds-ct-")
+	if err != nil {
+		return sdkRoot, err
+	}
+	defer os.RemoveAll(staging)
+	extracted, err := safeExtractSingleRoot(toolsArchive, staging) // staging/cmdline-tools
+	if err != nil {
+		return sdkRoot, fmt.Errorf("platform-tools 已装好；解压 cmdline-tools 失败：%w", err)
+	}
+	// 标准布局：zip 顶层的 cmdline-tools/ 重命名为 <sdkRoot>/cmdline-tools/latest
+	ctLatest := filepath.Join(sdkRoot, "cmdline-tools", "latest")
+	if err := os.RemoveAll(ctLatest); err != nil {
+		return sdkRoot, err
+	}
+	if err := os.MkdirAll(filepath.Dir(ctLatest), 0o755); err != nil {
+		return sdkRoot, err
+	}
+	if err := os.Rename(extracted, ctLatest); err != nil {
+		return sdkRoot, err
+	}
+	if runtime.GOOS != "windows" {
+		_ = filepath.Walk(ctLatest, func(p string, info os.FileInfo, err error) error {
+			if err == nil && info.IsDir() {
+				return os.Chmod(p, 0o755)
+			}
+			if err == nil && info.Mode()&0o111 == 0 {
+				return os.Chmod(p, 0o755)
+			}
+			return nil
+		})
+	}
+	return sdkRoot, nil
+}
+
 func InstallTool(tool models.Tool, version, mirror string) (string, error) {
 	switch tool {
 	case models.Node:
@@ -644,6 +796,8 @@ func InstallTool(tool models.Tool, version, mirror string) (string, error) {
 		return installMaven(version, mirror)
 	case models.Gradle:
 		return installGradle(version, mirror)
+	case models.AndroidSDK:
+		return installAndroidSDK(version, mirror)
 	}
 	return "", fmt.Errorf("暂不支持下载该工具：%s", tool)
 }

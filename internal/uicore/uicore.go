@@ -311,6 +311,9 @@ func (c *Controller) StartInstall(version, mirror string) {
 		return
 	}
 	version = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(version), "v"))
+	if tool == models.AndroidSDK && version == "" {
+		version = "latest"
+	}
 	major := strings.Split(version, ".")[0]
 	if version == "" || !isDigits(major) {
 		c.Push(map[string]interface{}{"text": "请输入大版本号，例如 22 或 17。", "kind": "error"})

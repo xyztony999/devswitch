@@ -43,6 +43,14 @@ func ShimScript(kind, name string) string {
 			"fi",
 			"",
 		}, "\n")
+	case "androidsdk":
+		varName := "DEVSWITCH_ANDROIDSDK_HOME"
+		lookup = strings.Join([]string{
+			fmt.Sprintf(`if [ -n "$%s" ] && [ -x "$%s/platform-tools/%s" ]; then`, varName, varName, name),
+			fmt.Sprintf(`  exec "$%s/platform-tools/%s" "$@"`, varName, name),
+			"fi",
+			"",
+		}, "\n")
 	default: // java
 		lookup = strings.Join([]string{
 			`if [ -n "$DEVSWITCH_JAVA_HOME" ]; then`,
@@ -78,6 +86,8 @@ func winShimTargets(kind, name string, state *models.State) []string {
 		return []string{home + "\\" + WinNodeTargets[name]}
 	case "maven", "gradle":
 		return []string{home + "\\bin\\" + WinBuildtoolTargets[name]}
+	case "androidsdk":
+		return []string{home + "\\platform-tools\\" + name + ".exe"}
 	default: // java
 		return []string{home + "\\bin\\" + name + ".exe", home + "\\jre\\bin\\" + name + ".exe"}
 	}

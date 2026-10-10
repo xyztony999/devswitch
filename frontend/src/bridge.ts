@@ -34,6 +34,9 @@ export function send(msg: Record<string, unknown>): void {
 export function sourceText(source: string): string {
   if (source === 'system') return '系统安装'
   if (source === 'imported') return '手动导入'
+  if (source === 'env') return 'ANDROID_HOME 指向'
+  if (source === 'path') return 'PATH 发现'
+  if (source === 'downloaded') return '本工具下载'
   return '本机目录'
 }
 

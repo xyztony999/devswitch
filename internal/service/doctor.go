@@ -47,7 +47,7 @@ func DoctorIssues() []Issue {
 		issues = append(issues, Issue{"warn", "path-missing",
 			localBin + " 不在本次 PATH 里，终端可能仍走系统版本。"})
 	} else if index > 0 {
-		keywords := []string{"node", "jvm", "jdk", "java"}
+		keywords := []string{"node", "jvm", "jdk", "java", "platform-tools"}
 		if !paths.IsWindows {
 			keywords = []string{"node", "jvm"}
 		}
@@ -123,6 +123,18 @@ func DoctorIssues() []Issue {
 			} else if !apply.IsOurShim(shim) {
 				issues = append(issues, Issue{"warn", "foreign-shim", shim + " 还不是 DevSwitch 接管的入口。"})
 			}
+		}
+	}
+
+	if r := state.CurrentRuntime(models.AndroidSDK); r != nil {
+		pt := filepath.Join(r.Home, "platform-tools")
+		adb := "adb"
+		if paths.IsWindows {
+			adb = "adb.exe"
+		}
+		if !fileExistsAnywhere(filepath.Join(pt, adb)) {
+			issues = append(issues, Issue{"warn", "no-pt",
+				"当前 Android SDK 缺少 platform-tools：" + r.Home + "。可重新 install androidsdk。"})
 		}
 	}
 

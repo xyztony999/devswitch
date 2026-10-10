@@ -16,30 +16,39 @@ const mirrorOptions = [
   { label: '清华源', value: 'tuna' }
 ]
 
-const TOOLS = ['node', 'java', 'maven', 'gradle'] as const
+const TOOLS = ['node', 'java', 'maven', 'gradle', 'androidsdk'] as const
 const TOOL_LABELS: Record<string, string> = {
   node: 'Node.js',
   java: 'Java',
   maven: 'Maven',
-  gradle: 'Gradle'
+  gradle: 'Gradle',
+  androidsdk: 'Android SDK'
 }
 const TOOL_COMMANDS: Record<string, string> = {
   node: 'node / npm',
   java: 'java / javac',
   maven: 'mvn',
-  gradle: 'gradle'
+  gradle: 'gradle',
+  androidsdk: 'adb / fastboot'
 }
 const TOOL_BLURBS: Record<string, string> = {
   node: 'JavaScript 运行时 · 版本切换对已打开的终端立即生效',
   java: 'JDK · 同步维护 JAVA_HOME（终端钩子 + 用户环境变量）',
   maven: '构建工具 · 同步维护 MAVEN_HOME',
-  gradle: '构建工具 · 同步维护 GRADLE_HOME'
+  gradle: '构建工具 · 同步维护 GRADLE_HOME',
+  androidsdk: 'Android 开发套件 · adb / fastboot 即时生效，同步维护 ANDROID_HOME'
 }
 
 // 关于页是纯前端本地路由，不打扰后端 page 状态
 const showAbout = ref(false)
 
 const isToolPage = computed(() => TOOLS.includes(store.page as never))
+watch(
+  () => store.page,
+  () => {
+    if (!mirrorOptions.value.some(o => o.value === dlMirror.value)) dlMirror.value = 'official'
+  }
+)
 const activeTool = computed<string>(() => (isToolPage.value ? store.page : 'node'))
 const currentOf = (tool: string) => store.current[tool] || null
 
@@ -68,7 +77,7 @@ function setPage(page: string) {
 
 function download() {
   const version = dlVersion.value.trim()
-  if (!version) {
+  if (!version && activeTool.value !== 'androidsdk') {
     message.warning('请输入大版本号，例如 22 或 17')
     return
   }
@@ -275,8 +284,9 @@ function useHome(home: string) {
 
           <!-- 下载条 -->
           <div class="dl-card">
-            <span class="dl-label">下载{{ TOOL_LABELS[activeTool] }}大版本</span>
+            <span class="dl-label">下载{{ TOOL_LABELS[activeTool] }}{{ activeTool === 'androidsdk' ? '' : '大版本' }}</span>
             <NInput
+              v-if="activeTool !== 'androidsdk'"
               v-model:value="dlVersion"
               size="small"
               placeholder="如 22 / 17 / 3"
@@ -284,6 +294,7 @@ function useHome(home: string) {
               :disabled="store.installing"
               @keyup.enter="download"
             />
+            <span v-else class="dl-label" style="color: var(--text-faint)">platform-tools 最新版</span>
             <NSelect
               v-model:value="dlMirror"
               size="small"

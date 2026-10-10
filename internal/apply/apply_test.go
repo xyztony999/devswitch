@@ -103,6 +103,32 @@ func TestGoldenHookSnippet(t *testing.T) {
 	}
 }
 
+// stripAndroidSDKLines 删除 androidsdk 接入带来的增量行（赋值行 + 专属段），
+// 余下内容与 Python 时代的 golden 逐字节一致——即"四工具语义不回归"的交叉断言。
+func stripAndroidSDKLines(text string) string {
+	lines := strings.Split(text, "\n")
+	kept := make([]string, 0, len(lines))
+	skipBlock := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.Contains(line, "DEVSWITCH_ANDROIDSDK_HOME") && strings.HasSuffix(trimmed, "]; then") {
+			skipBlock = true
+			continue
+		}
+		if skipBlock {
+			if trimmed == "fi" {
+				skipBlock = false
+			}
+			continue
+		}
+		if strings.Contains(line, "DEVSWITCH_ANDROIDSDK_HOME") {
+			continue // 赋值行
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
 func TestGoldenCurrentEnvAndEnvSh(t *testing.T) {
 	root, restore := fakePaths(t)
 	defer restore()
@@ -115,11 +141,44 @@ func TestGoldenCurrentEnvAndEnvSh(t *testing.T) {
 	}
 	currentData, _ := os.ReadFile(paths.CurrentEnv())
 	envData, _ := os.ReadFile(paths.EnvFile())
-	if got, want := normalize(string(currentData), root), golden(t, "current.env"); got != want {
-		t.Errorf("current.env 不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+
+	// 交叉断言：剔除 androidsdk 增量后与旧 golden 字节一致（四工具不回归）
+	if got, want := stripAndroidSDKLines(normalize(string(currentData), root)), golden(t, "current.env"); got != want {
+		t.Errorf("current.env（剔除 androidsdk 行）不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
-	if got, want := normalize(string(envData), root), golden(t, "env.sh"); got != want {
-		t.Errorf("env.sh 不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	if got, want := stripAndroidSDKLines(normalize(string(envData), root)), golden(t, "env.sh"); got != want {
+		t.Errorf("env.sh（剔除 androidsdk 段）不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+
+	// androidsdk 增量行本身：未选中时为空赋值
+	if !strings.Contains(string(envData), "DEVSWITCH_ANDROIDSDK_HOME=\"\"") {
+		t.Error("env.sh 应含 androidsdk 空赋值行")
+	}
+}
+
+func TestEnvShWithAndroidSDKSelected(t *testing.T) {
+	root, restore := fakePaths(t)
+	defer restore()
+	state := testState()
+	state.Runtimes = append(state.Runtimes, models.Runtime{
+		Tool: models.AndroidSDK, Version: "35.0.2", Major: "35",
+		Home: "/opt/android-sdk", Binary: "/opt/android-sdk/platform-tools/adb", Source: "system",
+	})
+	state.Current[models.AndroidSDK] = "/opt/android-sdk"
+	if err := WriteEnvSh(state); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(paths.EnvFile())
+	got := normalize(string(data), root)
+	for _, want := range []string{
+		`DEVSWITCH_ANDROIDSDK_HOME="/opt/android-sdk"`,
+		`if [ -n "$DEVSWITCH_ANDROIDSDK_HOME" ]; then`,
+		`  export ANDROID_HOME="$DEVSWITCH_ANDROIDSDK_HOME"`,
+		`  _devswitch_front "$ANDROID_HOME/platform-tools"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("env.sh 缺少 androidsdk 段：%q\n%s", want, got)
+		}
 	}
 }
 

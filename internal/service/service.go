@@ -204,6 +204,16 @@ func WhichBinary(name string) (string, bool) {
 			return exists(filepath.Join(r.Home, winNodeTargets[name]))
 		}
 		return exists(filepath.Join(r.Home, "bin", name))
+	case "adb", "fastboot":
+		r := state.CurrentRuntime(models.AndroidSDK)
+		if r == nil {
+			return "", false
+		}
+		exe := name
+		if paths.IsWindows {
+			exe = name + ".exe"
+		}
+		return exists(filepath.Join(r.Home, "platform-tools", exe))
 	case "mvn", "mvnDebug", "gradle":
 		tool := models.Maven
 		if name == "gradle" {
@@ -276,8 +286,16 @@ func InstallRuntime(tool models.Tool, version, mirror string) (string, string, e
 		return "", "", fmt.Errorf("下载完成但未能识别安装目录：%s", home)
 	}
 	_ = MergeScan()
-	if _, err := Use(tool, runtime.Version); err != nil {
-		return "", "", err
+	// 新装实例先入册（部分安装目录不在扫描根内），再按 home 精确切换——
+	// 版本号匹配在同版本多实例时会撞上列表里更早的条目。
+	runtime.Source = "downloaded"
+	state := store.Load()
+	state.Upsert(*runtime)
+	_ = store.Save(state)
+	if _, err := Use(tool, runtime.Home); err != nil {
+		if _, err2 := Use(tool, runtime.Version); err2 != nil {
+			return "", "", err
+		}
 	}
 	return runtime.Home, runtime.Version, nil
 }
