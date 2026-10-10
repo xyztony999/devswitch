@@ -28,11 +28,11 @@ modules:
       requirement: { status: complete, note: "D0-D2 完成（四项决策/PRD 9/9），2026-10-08" }
       api: { status: complete, note: "D3 api-androidsdk v1.0（CLI 命令 + GUI op 契约）" }
       interaction: { status: complete, note: "D4 androidsdk-page v1.0" }
-      backend: { status: todo, note: "B1+ 未开始；按 API 文档实现（无栈 manifest，Go 仓内模块）" }
-      validation: { status: todo, note: "Gate 2 待代码阶段" }
+      backend: { status: complete, note: "B1 五工具全链路完成（检测/下载/切换/治理/GUI）；v2.1.0 已发布" }
+      validation: { status: complete, note: "Gate 2 PASS（gate2-androidsdk.md）；CLI 全链路 + GUI CDP + 真机 install 155MB 验收" }
     gates:
       gate1: { status: pass, note: "gate1-androidsdk.md，2026-10-08" }
-      gate2: { status: pending, note: "依赖 backend 完成" }
+      gate2: { status: pass, note: "gate2-androidsdk.md，2026-10-08；执行偏差已消解（cmdline-tools 清单动态解析）" }
   - name: techstack-pool-decision
     title: "技术栈池接入决策（ADR-001）"
     domain: platform
@@ -82,10 +82,11 @@ workspace/
 |------|------|
 | 2026-10-08 | androidsdk 模块 D0-D4 + Gate 1 PASS（并行会话产物自根 workspace/ 迁入并合并） |
 | 2026-10-08 | techstack-pool-decision 模块：ADR-001 决策"暂不入栈池（方案 C）"+ Gate 1 PASS |
+| 2026-10-08 | androidsdk：B1 实现 + Gate 2 PASS + v2.1.0 发布（端到端流水线首次全程走通） |
 
 ## 遗留决策点（编码阶段复核）
 
-1. 腾讯镜像 cmdline-tools 包名核实（androidsdk API D5）
-2. platform-tools 会话 PATH 钩子产物的 golden 新用例（androidsdk PRD §9）
+1. ~~腾讯镜像 cmdline-tools 包名核实（androidsdk API D5）~~ → 已消解：运行时解析 repository2-3.xml（官方/腾讯字节一致），真机验证 commandlinetools-win-16111833_latest.zip
+2. ~~platform-tools 会话 PATH 钩子产物的 golden 新用例（androidsdk PRD §9）~~ → 已消解：交叉断言 + TestEnvShWithAndroidSDKSelected 落地
 3. ADR-001 实施清单 I1-I6（go-cli-conventions 规则文件 + assets 挂载 + check 复验）
 4. ADR-001 升级触发条件 T1/T2/T3 任一达成时，按蓝图立项 go-cli 栈
