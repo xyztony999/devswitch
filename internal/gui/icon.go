@@ -10,8 +10,9 @@ import (
 	"github.com/getlantern/systray"
 )
 
-// trayIconICO 程序化生成 32x32 ICO（无资产依赖），图案与各端托盘一致：
-// 深蓝底 + 蓝圆 + 白色切换标记。
+// trayIconICO 程序化生成 32x32 ICO（无资产依赖）。
+// 图案与品牌标识同源：深色 squircle 容器 + 品牌绿拨动轨道 + 白色滑钮
+// （share/icons/hicolor/scalable/apps/devswitch.svg 的 32px 版）。
 func trayIconICO() []byte {
 	const size = 32
 	const px = size * size
@@ -26,35 +27,54 @@ func trayIconICO() []byte {
 		row := (size - 1 - y) * size
 		copy(bmp[(row+x)*4:], c[:])
 	}
-	navy := [4]byte{41, 23, 15, 255}   // BGRA: #0f1729
-	blue := [4]byte{212, 77, 28, 255}  // #1c4dd4 近似主蓝
-	white := [4]byte{253, 250, 247, 255}
+	inRect := func(x, y, x0, y0, x1, y1 int) bool {
+		return x >= x0 && x <= x1 && y >= y0 && y <= y1
+	}
+	inRoundRect := func(x, y, x0, y0, x1, y1, r int) bool {
+		if !inRect(x, y, x0, y0, x1, y1) {
+			return false
+		}
+		cx := x
+		if x < x0+r {
+			cx = x0 + r
+		} else if x > x1-r {
+			cx = x1 - r
+		}
+		cy := y
+		if y < y0+r {
+			cy = y0 + r
+		} else if y > y1-r {
+			cy = y1 - r
+		}
+		dx, dy := float64(x-cx), float64(y-cy)
+		return dx*dx+dy*dy <= float64(r)*float64(r)
+	}
+	inCircle := func(x, y, cx, cy, r float64) bool {
+		dx, dy := float64(x)-cx, float64(y)-cy
+		return dx*dx+dy*dy <= r*r
+	}
+
+	// 品牌色（BGRA）
+	container := [4]byte{30, 26, 29, 255} // #1d212a 深色容器
+	green := [4]byte{88, 160, 24, 255}    // #18a058 品牌绿
+	knob := [4]byte{243, 245, 242, 255}   // #f2f5f3 滑钮
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			put(x, y, navy)
-		}
-	}
-	// 圆
-	r := 12.0
-	cx, cy := 16.0, 16.0
-	for y := 4; y < size-4; y++ {
-		for x := 4; x < size-4; x++ {
-			dx, dy := float64(x)+0.5-cx, float64(y)+0.5-cy
-			if dx*dx+dy*dy <= r*r {
-				put(x, y, blue)
+			// 32px 基准（256 → /8）：容器 x2..30 y2..30 rx7
+			switch {
+			case inRoundRect(x, y, 1, 1, 30, 30, 7):
+				put(x, y, container)
+			default:
+				continue // 透明（AND 掩码全 0 但 BGRA A=0）
 			}
-		}
-	}
-	// 白色横线 + 端点圆
-	for x := 11; x <= 21; x++ {
-		put(x, 16, white)
-	}
-	for y := 13; y <= 19; y++ {
-		for x := 18; x <= 24; x++ {
-			dx, dy := float64(x)-21.0, float64(y)-16.0
-			if dx*dx+dy*dy <= 9 {
-				put(x, y, white)
+			// 轨道：x 6..26，高 6（y 13..18），rx 3
+			if inRoundRect(x, y, 6, 13, 26, 18, 3) {
+				put(x, y, green)
+			}
+			// 滑钮：cx 22.5 cy 15.5 r 3
+			if inCircle(float64(x), float64(y), 22.5, 15.5, 3.0) {
+				put(x, y, knob)
 			}
 		}
 	}

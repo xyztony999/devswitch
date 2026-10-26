@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="28" fill="#0F172A"/>
-  <rect x="18" y="18" width="92" height="92" rx="22" fill="#1D4ED8"/>
-  <rect x="30" y="54" width="68" height="22" rx="11" fill="#0F172A"/>
-  <circle cx="84" cy="65" r="13" fill="#F8FAFC"/>
-  <text x="40" y="42" font-size="16" font-family="sans-serif" fill="#BFDBFE" font-weight="700">N</text>
-  <text x="78" y="104" font-size="16" font-family="sans-serif" fill="#FED7AA" font-weight="700">J</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- DevSwitch 品牌标识：拨动开关（版本切换器本义）。
+       深色 squircle 容器 + 品牌绿激活轨道 + 白色滑钮。
+       各端（exe/托盘/标题栏/安装器/GUI）统一本图形；16px 特例为无容器简化形。 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262a33"/>
+      <stop offset="1" stop-color="#15181e"/>
+    </linearGradient>
+    <linearGradient id="track" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1fb564"/>
+      <stop offset="1" stop-color="#0f8a4c"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="52" y="104" width="152" height="48" rx="24" fill="url(#track)"/>
+  <circle cx="180" cy="128" r="17" fill="#f2f5f3"/>
+  <circle cx="180" cy="128" r="17" fill="none" stroke="#0b6b3c" stroke-opacity=".5"/>
 </svg>

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { NButton, NCheckbox, NEmpty, NInput, NModal, NSelect, NSpin, useMessage } from 'naive-ui'
 import BrandLogo from './BrandLogo.vue'
+import BrandMark from './BrandMark.vue'
 import { send, issueLabel } from '../bridge'
 import { store } from '../store'
 import type { Runtime } from '../types'
@@ -113,7 +114,7 @@ function useHome(home: string) {
     <!-- 顶栏：品牌 + 各工具当前版本（带 logo，点击直达对应页） -->
     <header class="app-topbar">
       <div class="app-brand">
-        <span class="app-brand-mark">D</span>
+        <BrandMark :size="26" />
         <span>DevSwitch</span>
       </div>
       <div class="topbar-current">
@@ -188,7 +189,7 @@ function useHome(home: string) {
         <template v-if="showAbout">
           <div class="tool-hero">
             <div class="tool-hero-icon">
-              <span class="app-brand-mark" style="width: 34px; height: 34px; font-size: 17px">D</span>
+              <BrandMark :size="34" />
             </div>
             <div>
               <div class="tool-hero-title">DevSwitch</div>

@@ -71,19 +71,6 @@ code {
   white-space: nowrap;
 }
 
-.app-brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #18a058, #0c7a43);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-}
-
 .topbar-current {
   flex: 1;
   min-width: 0;
