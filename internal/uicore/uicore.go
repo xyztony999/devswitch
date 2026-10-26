@@ -15,7 +15,7 @@ import (
 	"github.com/xyztony999/devswitch/internal/store"
 )
 
-func binDir() string   { return paths.LocalBin() }
+func binDir() string    { return paths.LocalBin() }
 func configDir() string { return paths.ConfigDir() }
 
 // BRIDGE_ADAPTER 注入 webkit 兼容层：前端 bundle 只认
@@ -174,15 +174,15 @@ func (c *Controller) BuildState(flash map[string]interface{}, extraFlash ...map[
 		selected = "0"
 	}
 	return map[string]interface{}{
-		"page":       c.Page,
-		"version":    models.AppVersion,
-		"installing": c.Installing,
-		"current":    current,
-		"runtimes":   runtimes,
-		"issues":     issueList,
-		"selected":   selected,
-		"flash":      flashValue,
-		"latest":     c.latest,
+		"page":            c.Page,
+		"version":         models.AppVersion,
+		"installing":      c.Installing,
+		"current":         current,
+		"runtimes":        runtimes,
+		"issues":          issueList,
+		"selected":        selected,
+		"flash":           flashValue,
+		"latest":          c.latest,
 		"updateAvailable": c.latest != "" && c.latest != models.AppVersion,
 		"updateChecking":  c.checking,
 		"paths": map[string]interface{}{
@@ -228,6 +228,15 @@ func (c *Controller) HandleMessage(data map[string]interface{}) {
 		c.StartInstall(version, mirror)
 	case "import":
 		c.doImport()
+	case "remove":
+		home, _ := data["home"].(string)
+		purge, _ := data["purge"].(bool)
+		confirmed, _ := data["confirmed"].(bool)
+		if !confirmed {
+			c.Push(map[string]interface{}{"text": "移除需要确认。", "kind": "error"})
+			return
+		}
+		c.doRemove(models.Tool(c.Page), home, purge)
 	case "fix":
 		if c.fixing {
 			return
@@ -363,6 +372,24 @@ func isDigits(s string) bool {
 		}
 	}
 	return true
+}
+
+// doRemove 移出版本清单（GUI 已确认；purge 仍受红线判定约束）。
+func (c *Controller) doRemove(tool models.Tool, home string, purge bool) {
+	runtime, degraded, err := service.RemoveRuntime(tool, home, purge, true)
+	if err != nil {
+		c.Push(map[string]interface{}{"text": err.Error(), "kind": "error"})
+		return
+	}
+	c.Selected = ""
+	text := fmt.Sprintf("已移除 %s（磁盘未动）。", runtime.Version)
+	if purge && degraded {
+		text = fmt.Sprintf("已移除 %s（外来安装或目录在用户主目录外，磁盘未动）。", runtime.Version)
+	} else if purge {
+		text = fmt.Sprintf("已移除 %s，并删除目录。", runtime.Version)
+	}
+	c.Push(map[string]interface{}{"text": text, "kind": "ok"})
+	c.io.RefreshTray()
 }
 
 func (c *Controller) doImport() {

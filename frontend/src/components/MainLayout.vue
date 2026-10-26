@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NButton, NEmpty, NInput, NSelect, NSpin, useMessage } from 'naive-ui'
+import { NButton, NCheckbox, NEmpty, NInput, NModal, NSelect, NSpin, useMessage } from 'naive-ui'
 import BrandLogo from './BrandLogo.vue'
 import { send, issueLabel } from '../bridge'
 import { store } from '../store'
@@ -41,6 +41,25 @@ const TOOL_BLURBS: Record<string, string> = {
 
 // 关于页是纯前端本地路由，不打扰后端 page 状态
 const showAbout = ref(false)
+
+// 移除确认层
+const removeTarget = ref<Runtime | null>(null)
+const removePurge = ref(false)
+// 外来安装（system/env/path）不显示删盘选项；目录是否在用户主目录内由后端红线判定，
+// 越界时后端自动降级为仅移清单并在 flash 说明
+function canPurgeItem(item: Runtime): boolean {
+  return ['downloaded', 'imported', 'local'].includes(item.source)
+}
+function askRemove(item: Runtime) {
+  removeTarget.value = item
+  removePurge.value = false
+}
+function confirmRemove() {
+  const item = removeTarget.value
+  if (!item) return
+  send({ op: 'remove', home: item.home, purge: removePurge.value, confirmed: true })
+  removeTarget.value = null
+}
 
 const isToolPage = computed(() => TOOLS.includes(store.page as never))
 watch(
@@ -349,6 +368,15 @@ function useHome(home: string) {
                   切换到此版本
                 </NButton>
                 <NButton v-else size="small" disabled>已激活</NButton>
+                <NButton
+                  v-if="!isActive(item)"
+                  size="small"
+                  quaternary
+                  type="error"
+                  @click="askRemove(item)"
+                >
+                  移除
+                </NButton>
               </div>
             </div>
           </div>
@@ -363,5 +391,32 @@ function useHome(home: string) {
         </template>
       </main>
     </div>
+
+    <!-- 移除确认层 -->
+    <NModal
+      :show="!!removeTarget"
+      preset="dialog"
+      :title="removeTarget ? `移除 ${removeTarget.label || removeTarget.version}` : ''"
+      positive-text="确认移除"
+      negative-text="取消"
+      :type="removePurge ? 'error' : 'warning'"
+      @positive-click="confirmRemove"
+      @negative-click="removeTarget = null"
+      @close="removeTarget = null"
+    >
+      <div v-if="removeTarget" style="line-height: 1.8">
+        <div><code>{{ removeTarget.home }}</code></div>
+        <div class="issue-msg" v-if="!removePurge">仅从 DevSwitch 清单移除，不删除磁盘文件。</div>
+        <div class="issue-msg" v-else style="color: #ff8589">将永久删除上述目录。</div>
+        <NCheckbox
+          v-if="canPurgeItem(removeTarget)"
+          :checked="removePurge"
+          style="margin-top: 8px"
+          @update:checked="(v: boolean) => (removePurge = v)"
+        >
+          同时删除磁盘目录（不可恢复）
+        </NCheckbox>
+      </div>
+    </NModal>
   </div>
 </template>

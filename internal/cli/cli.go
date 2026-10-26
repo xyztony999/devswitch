@@ -21,6 +21,7 @@ var usage = `用法：devswitch <命令> [参数]
   use <tool> <version>    切换版本（node/java/maven/gradle/androidsdk）
   install <tool> <ver>    下载安装并切换（--mirror npmmirror|tuna）
   import <tool> <path>    导入一个本地安装目录
+  remove <tool> <ver>    移出版本清单（--purge 删目录，须确认且仅限用户目录内）
   export [file]           导出版本选择到 .devswitch
   apply <file>            按文件对齐版本（--install-missing）
   which <name>            打印当前实际二进制路径
@@ -51,6 +52,8 @@ func Main(args []string) int {
 		return cmdInstall(rest)
 	case "import":
 		return cmdImport(rest)
+	case "remove":
+		return cmdRemove(rest)
 	case "export":
 		return cmdExport(rest)
 	case "apply":
