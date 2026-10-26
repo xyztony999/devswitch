@@ -33,6 +33,18 @@ modules:
     gates:
       gate1: { status: pass, note: "gate1-androidsdk.md，2026-10-08" }
       gate2: { status: pass, note: "gate2-androidsdk.md，2026-10-08；执行偏差已消解（cmdline-tools 清单动态解析）" }
+  - name: remove
+    title: "版本移除（remove / --purge）"
+    domain: core
+    stages:
+      requirement: { status: complete, note: "D0 四决策用户确认；PRD 9/9，2026-10-09" }
+      api: { status: complete, note: "api-remove.md v1.0（红线三查 + 双端确认）" }
+      interaction: { status: complete, note: "remove-ui.md（卡片按钮 + 确认层）" }
+      backend: { status: complete, note: "CLI+GUI+service 单测 6/6；真机四场景验收" }
+      validation: { status: complete, note: "Gate 2 PASS 无偏差（gate2-remove.md）" }
+    gates:
+      gate1: { status: pass, note: "gate1-remove.md，2026-10-09" }
+      gate2: { status: pass, note: "gate2-remove.md，2026-10-09；v2.2.0 发布" }
   - name: techstack-pool-decision
     title: "技术栈池接入决策（ADR-001）"
     domain: platform
@@ -83,6 +95,7 @@ workspace/
 | 2026-10-08 | androidsdk 模块 D0-D4 + Gate 1 PASS（并行会话产物自根 workspace/ 迁入并合并） |
 | 2026-10-08 | techstack-pool-decision 模块：ADR-001 决策"暂不入栈池（方案 C）"+ Gate 1 PASS |
 | 2026-10-08 | androidsdk：B1 实现 + Gate 2 PASS + v2.1.0 发布（端到端流水线首次全程走通） |
+| 2026-10-09 | remove 模块：D0-D4 + 双 Gate PASS + v2.2.0 发布（变更管理级联首跑） |
 
 ## 遗留决策点（编码阶段复核）
 
