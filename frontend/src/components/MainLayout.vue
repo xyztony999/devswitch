@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NButton, NCheckbox, NModal } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import BrandLogo from './BrandLogo.vue'
@@ -7,6 +7,8 @@ import BrandMark from './BrandMark.vue'
 import ToolPage from './ToolPage.vue'
 import DoctorPage from './DoctorPage.vue'
 import AboutPage from './AboutPage.vue'
+import SideNav from './SideNav.vue'
+import TopChips from './TopChips.vue'
 import { send } from '../bridge'
 import { store } from '../store'
 import { TOOL_CONFIGS } from '../tools'
@@ -17,14 +19,35 @@ const message = useMessage()
 // 关于页是纯前端本地路由，不打扰后端 page 状态
 const showAbout = ref(false)
 
+// 响应式断点（单点状态，resize 驱动）：
+//   wide   ≥1100px：全量 chips + 常驻侧栏
+//   mid    769–1099px：chips 折叠 + 图标栏侧栏
+//   narrow ≤768px：chips 折叠 + 抽屉侧栏（汉堡开关）
+const width = ref(window.innerWidth)
+const onResize = () => (width.value = window.innerWidth)
+onMounted(() => window.addEventListener('resize', onResize))
+onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+const mode = computed<'wide' | 'mid' | 'narrow'>(() =>
+  width.value <= 768 ? 'narrow' : width.value < 1100 ? 'mid' : 'wide'
+)
+
+const drawerOpen = ref(false)
 const isToolPage = computed(() => TOOL_CONFIGS.some(t => t.id === store.page))
 const activeTool = computed<Tool>(() => (isToolPage.value ? (store.page as Tool) : 'node'))
-const currentOf = (id: string) => store.current[id] || null
+
+function navigate(page: string) {
+  drawerOpen.value = false
+  if (page === '__about') {
+    showAbout.value = true
+    return
+  }
+  showAbout.value = false
+  send({ op: 'page', page })
+}
 
 // 移除确认层
 const removeTarget = ref<Runtime | null>(null)
 const removePurge = ref(false)
-// 外来安装（system/env/path）不显示删盘选项；目录是否在用户主目录内由后端红线判定
 function canPurgeItem(item: Runtime): boolean {
   return ['downloaded', 'imported', 'local'].includes(item.source)
 }
@@ -47,86 +70,37 @@ watch(
     else message.success(flash.text)
   }
 )
-
-function setPage(page: string) {
-  showAbout.value = false
-  send({ op: 'page', page })
-}
 </script>
 
 <template>
   <div class="app-shell">
-    <!-- 顶栏：品牌 + 各工具当前版本（带 logo，点击直达对应页） -->
     <header class="app-topbar">
       <div class="app-brand">
         <BrandMark :size="26" />
         <span>DevSwitch</span>
       </div>
-      <div class="topbar-current" style="flex-wrap: wrap; row-gap: 4px">
-        <div
-          v-for="t in TOOL_CONFIGS"
-          :key="t.id"
-          class="top-chip"
-          :class="{ active: isToolPage && activeTool === t.id }"
-          @click="setPage(t.id)"
-        >
-          <BrandLogo :kind="t.id" size="sm" />
-          <span class="top-chip-name">{{ t.id }}</span>
-          <span class="top-chip-ver">{{ currentOf(t.id)?.version || '—' }}</span>
-        </div>
-      </div>
+      <TopChips :active-tool="activeTool" @navigate="navigate" />
+      <NButton
+        v-if="mode === 'narrow'"
+        size="small"
+        secondary
+        aria-label="菜单"
+        @click="drawerOpen = !drawerOpen"
+      >
+        ☰
+      </NButton>
       <NButton size="small" secondary @click="send({ op: 'scan' })">重新扫描</NButton>
     </header>
 
     <div class="app-body">
-      <!-- 左侧导航：常驻，任何页面都能一键切换 -->
-      <nav class="app-nav">
-        <div class="nav-section">运行时</div>
-        <div
-          v-for="t in TOOL_CONFIGS"
-          :key="t.id"
-          class="nav-item"
-          :class="{ active: isToolPage && activeTool === t.id }"
-          @click="setPage(t.id)"
-        >
-          <BrandLogo :kind="t.id" size="lg" />
-          <div class="nav-item-text">
-            <div class="nav-item-name">{{ t.label }}</div>
-            <div class="nav-item-sub">{{ currentOf(t.id)?.version || '未选择' }}</div>
-          </div>
-        </div>
+      <SideNav
+        :collapsed="mode === 'mid'"
+        :drawer="mode === 'narrow'"
+        :drawer-open="mode === 'narrow' && drawerOpen"
+        @navigate="navigate"
+        @close-drawer="drawerOpen = false"
+      />
 
-        <div class="nav-section">工具</div>
-        <div
-          class="nav-item"
-          :class="{ active: store.page === 'doctor' && !showAbout }"
-          @click="setPage('doctor')"
-        >
-          <span style="font-size: 18px; width: 22px; text-align: center">🩺</span>
-          <div class="nav-item-text">
-            <div class="nav-item-name">环境诊断</div>
-            <div class="nav-item-sub">PATH / shim / 钩子</div>
-          </div>
-          <span v-if="store.issues.length" class="nav-badge">{{ store.issues.length }}</span>
-          <span v-else class="nav-badge ok">✓</span>
-        </div>
-        <div class="nav-item" :class="{ active: showAbout }" @click="showAbout = true">
-          <span style="font-size: 18px; width: 22px; text-align: center">ℹ️</span>
-          <div class="nav-item-text">
-            <div class="nav-item-name">关于</div>
-          </div>
-          <span v-if="store.updateAvailable" class="nav-badge ok">NEW</span>
-        </div>
-
-        <div class="nav-spacer"></div>
-        <div class="nav-footer">
-          shim 目录
-          <br /><code>{{ store.paths.localBin || '—' }}</code>
-          <br />v{{ store.version || '—' }}
-        </div>
-      </nav>
-
-      <!-- 主内容：路由到子页 -->
       <main class="app-main">
         <AboutPage v-if="showAbout" />
         <DoctorPage v-else-if="store.page === 'doctor'" />
@@ -134,7 +108,6 @@ function setPage(page: string) {
       </main>
     </div>
 
-    <!-- 移除确认层 -->
     <NModal
       :show="!!removeTarget"
       preset="dialog"
