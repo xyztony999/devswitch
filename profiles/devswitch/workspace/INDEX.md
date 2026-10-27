@@ -57,6 +57,18 @@ modules:
     gates:
       gate1: { status: pass, note: "设计文档内自检 PASS，2026-10-27" }
       gate2: { status: pass, note: "gate2-golang-python-autoswitch.md；v2.3.0 发布" }
+  - name: ui-refactor
+    title: "UI 架构重构（工具注册表 + 组件化）"
+    domain: platform
+    stages:
+      requirement: { status: complete, note: "D0 三决策（前端范围/顺手微调/修 bug），2026-10-27" }
+      api: { status: complete, note: "N/A：纯前端重构，op 协议不动（ui-refactor.md）" }
+      interaction: { status: complete, note: "tools.ts 注册表 schema + 组件树设计" }
+      backend: { status: complete, note: "MainLayout 429→164 行；5 组件 + 注册表；versionInput bug 消除" }
+      validation: { status: complete, note: "Gate 2 PASS：CDP 七页回归 + 移除流 + 截图视觉核对" }
+    gates:
+      gate1: { status: pass, note: "ui-refactor.md 内自检" }
+      gate2: { status: pass, note: "gate2-ui-refactor.md；v2.3.1 发布" }
   - name: techstack-pool-decision
     title: "技术栈池接入决策（ADR-001）"
     domain: platform
@@ -109,6 +121,7 @@ workspace/
 | 2026-10-08 | androidsdk：B1 实现 + Gate 2 PASS + v2.1.0 发布（端到端流水线首次全程走通） |
 | 2026-10-09 | remove 模块：D0-D4 + 双 Gate PASS + v2.2.0 发布（变更管理级联首跑） |
 | 2026-10-27 | golang/python/autoswitch 三模块一批：D0-D4 + 双 Gate PASS + v2.3.0 发布 |
+| 2026-10-27 | ui-refactor：注册表组件化重构 双 Gate PASS + v2.3.1 发布 |
 
 ## 遗留决策点（编码阶段复核）
 
