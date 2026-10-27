@@ -1,59 +1,30 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NButton, NCheckbox, NEmpty, NInput, NModal, NSelect, NSpin, useMessage } from 'naive-ui'
+import { NButton, NCheckbox, NModal } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import BrandLogo from './BrandLogo.vue'
 import BrandMark from './BrandMark.vue'
-import { send, issueLabel } from '../bridge'
+import ToolPage from './ToolPage.vue'
+import DoctorPage from './DoctorPage.vue'
+import AboutPage from './AboutPage.vue'
+import { send } from '../bridge'
 import { store } from '../store'
-import type { Runtime } from '../types'
+import { TOOL_CONFIGS } from '../tools'
+import type { Runtime, Tool } from '../types'
 
 const message = useMessage()
-const dlVersion = ref('')
-const dlMirror = ref('official')
-const RELEASE_URL = 'https://github.com/xyztony999/devswitch/releases/latest'
-const mirrorOptions = [
-  { label: '官方源', value: 'official' },
-  { label: 'npmmirror', value: 'npmmirror' },
-  { label: '清华源', value: 'tuna' }
-]
-
-const TOOLS = ['node', 'java', 'maven', 'gradle', 'androidsdk', 'golang', 'python'] as const
-const TOOL_LABELS: Record<string, string> = {
-  node: 'Node.js',
-  java: 'Java',
-  maven: 'Maven',
-  gradle: 'Gradle',
-  androidsdk: 'Android SDK',
-  golang: 'Go',
-  python: 'Python'
-}
-const TOOL_COMMANDS: Record<string, string> = {
-  node: 'node / npm',
-  java: 'java / javac',
-  maven: 'mvn',
-  gradle: 'gradle',
-  androidsdk: 'adb / fastboot',
-  golang: 'go / gofmt',
-  python: 'python / pip'
-}
-const TOOL_BLURBS: Record<string, string> = {
-  node: 'JavaScript 运行时 · 版本切换对已打开的终端立即生效',
-  java: 'JDK · 同步维护 JAVA_HOME（终端钩子 + 用户环境变量）',
-  maven: '构建工具 · 同步维护 MAVEN_HOME',
-  gradle: '构建工具 · 同步维护 GRADLE_HOME',
-  androidsdk: 'Android 开发套件 · adb / fastboot 即时生效，同步维护 ANDROID_HOME',
-  golang: 'Go 工具链 · 同步维护 GOROOT（GOPATH/GOPROXY 不动）',
-  python: 'Python · 完整 CPython 含 pip（python-build-standalone），不设 PYTHONHOME'
-}
 
 // 关于页是纯前端本地路由，不打扰后端 page 状态
 const showAbout = ref(false)
 
+const isToolPage = computed(() => TOOL_CONFIGS.some(t => t.id === store.page))
+const activeTool = computed<Tool>(() => (isToolPage.value ? (store.page as Tool) : 'node'))
+const currentOf = (id: string) => store.current[id] || null
+
 // 移除确认层
 const removeTarget = ref<Runtime | null>(null)
 const removePurge = ref(false)
-// 外来安装（system/env/path）不显示删盘选项；目录是否在用户主目录内由后端红线判定，
-// 越界时后端自动降级为仅移清单并在 flash 说明
+// 外来安装（system/env/path）不显示删盘选项；目录是否在用户主目录内由后端红线判定
 function canPurgeItem(item: Runtime): boolean {
   return ['downloaded', 'imported', 'local'].includes(item.source)
 }
@@ -68,28 +39,9 @@ function confirmRemove() {
   removeTarget.value = null
 }
 
-const isToolPage = computed(() => TOOLS.includes(store.page as never))
-watch(
-  () => store.page,
-  () => {
-    if (!mirrorOptions.value.some(o => o.value === dlMirror.value)) dlMirror.value = 'official'
-  }
-)
-const activeTool = computed<string>(() => (isToolPage.value ? store.page : 'node'))
-const currentOf = (tool: string) => store.current[tool] || null
-
-const isActive = (item: Runtime) => {
-  const cur = store.current[item.tool]
-  return !!(cur && cur.home === item.home)
-}
-
-const errorCount = computed(
-  () => store.issues.filter((i) => i.level === 'error').length
-)
-
 watch(
   () => store.flash,
-  (flash) => {
+  flash => {
     if (!flash?.text) return
     if (flash.kind === 'error') message.error(flash.text)
     else message.success(flash.text)
@@ -99,19 +51,6 @@ watch(
 function setPage(page: string) {
   showAbout.value = false
   send({ op: 'page', page })
-}
-
-function download() {
-  const version = dlVersion.value.trim()
-  if (!version && !['androidsdk', 'golang', 'python'].includes(activeTool.value)) {
-    message.warning('请输入大版本号，例如 22 或 17')
-    return
-  }
-  send({ op: 'install', version, mirror: dlMirror.value })
-}
-
-function useHome(home: string) {
-  send({ op: 'use', home })
 }
 </script>
 
@@ -123,39 +62,37 @@ function useHome(home: string) {
         <BrandMark :size="26" />
         <span>DevSwitch</span>
       </div>
-      <div class="topbar-current">
+      <div class="topbar-current" style="flex-wrap: wrap; row-gap: 4px">
         <div
-          v-for="tool in TOOLS"
-          :key="tool"
+          v-for="t in TOOL_CONFIGS"
+          :key="t.id"
           class="top-chip"
-          :class="{ active: isToolPage && activeTool === tool }"
-          @click="setPage(tool)"
+          :class="{ active: isToolPage && activeTool === t.id }"
+          @click="setPage(t.id)"
         >
-          <BrandLogo :kind="tool" size="sm" />
-          <span class="top-chip-name">{{ tool }}</span>
-          <span class="top-chip-ver">{{ currentOf(tool)?.version || '—' }}</span>
+          <BrandLogo :kind="t.id" size="sm" />
+          <span class="top-chip-name">{{ t.id }}</span>
+          <span class="top-chip-ver">{{ currentOf(t.id)?.version || '—' }}</span>
         </div>
       </div>
       <NButton size="small" secondary @click="send({ op: 'scan' })">重新扫描</NButton>
     </header>
 
     <div class="app-body">
-      <!-- 左侧导航：常驻，任何页面都能一键切换（诊断不再困死） -->
+      <!-- 左侧导航：常驻，任何页面都能一键切换 -->
       <nav class="app-nav">
         <div class="nav-section">运行时</div>
         <div
-          v-for="tool in TOOLS"
-          :key="tool"
+          v-for="t in TOOL_CONFIGS"
+          :key="t.id"
           class="nav-item"
-          :class="{ active: isToolPage && activeTool === tool }"
-          @click="setPage(tool)"
+          :class="{ active: isToolPage && activeTool === t.id }"
+          @click="setPage(t.id)"
         >
-          <BrandLogo :kind="tool" size="lg" />
+          <BrandLogo :kind="t.id" size="lg" />
           <div class="nav-item-text">
-            <div class="nav-item-name">{{ TOOL_LABELS[tool] }}</div>
-            <div class="nav-item-sub">
-              {{ currentOf(tool)?.version || '未选择' }}
-            </div>
+            <div class="nav-item-name">{{ t.label }}</div>
+            <div class="nav-item-sub">{{ currentOf(t.id)?.version || '未选择' }}</div>
           </div>
         </div>
 
@@ -185,217 +122,15 @@ function useHome(home: string) {
         <div class="nav-footer">
           shim 目录
           <br /><code>{{ store.paths.localBin || '—' }}</code>
-          <br />v{{ store.version || '2.0.0' }}
+          <br />v{{ store.version || '—' }}
         </div>
       </nav>
 
-      <!-- 主内容 -->
+      <!-- 主内容：路由到子页 -->
       <main class="app-main">
-        <!-- 关于页 -->
-        <template v-if="showAbout">
-          <div class="tool-hero">
-            <div class="tool-hero-icon">
-              <BrandMark :size="34" />
-            </div>
-            <div>
-              <div class="tool-hero-title">DevSwitch</div>
-              <div class="tool-hero-sub">
-                Node.js / Java / Maven / Gradle 用户级版本切换器 · v{{ store.version || '2.0.0' }}
-              </div>
-            </div>
-          </div>
-
-          <!-- 新版本横幅（更新检查为只读查询，不上传任何数据） -->
-          <div v-if="store.updateAvailable" class="update-banner">
-            <div style="flex: 1; min-width: 0">
-              <div style="font-weight: 700; margin-bottom: 2px">
-                发现新版本 v{{ store.latest }}
-              </div>
-              <div class="issue-msg">当前 v{{ store.version }} · 建议下载新版安装包覆盖安装，版本选择与运行时数据不受影响</div>
-            </div>
-            <NButton size="small" type="primary" @click="send({ op: 'open-url', url: RELEASE_URL })">
-              打开发布页
-            </NButton>
-          </div>
-
-          <div class="ver-card" style="max-width: 560px">
-            <div class="ver-card-meta" style="flex-direction: row; justify-content: space-between">
-              <span>当前版本 <code>v{{ store.version || '—' }}</code></span>
-              <span>
-                最新版本
-                <code v-if="store.latest">v{{ store.latest }}</code>
-                <code v-else>未检查</code>
-                <template v-if="store.latest && !store.updateAvailable">（已是最新）</template>
-              </span>
-            </div>
-            <div class="ver-card-actions">
-              <NButton
-                size="small"
-                secondary
-                :loading="store.updateChecking"
-                @click="send({ op: 'check-update' })"
-              >
-                检查更新
-              </NButton>
-            </div>
-          </div>
-
-          <div class="ver-card" style="max-width: 560px">
-            <div class="issue-msg" style="line-height: 1.8">
-              扫描本机已有的运行时，收拢到一张列表里，一键切换；也可以直接下载安装指定大版本。
-              切换发生在当前用户目录（shim + 环境变量 + shell 钩子），不需要管理员权限，
-              已打开的终端立即生效。
-            </div>
-            <div class="ver-card-meta">
-              <span>项目主页：https://github.com/xyztony999/devswitch</span>
-              <span>开源协议：MIT</span>
-            </div>
-          </div>
-        </template>
-
-        <!-- 诊断页 -->
-        <template v-else-if="store.page === 'doctor'">
-          <div class="tool-hero">
-            <div class="tool-hero-icon" style="font-size: 24px">🩺</div>
-            <div style="flex: 1">
-              <div class="tool-hero-title">
-                环境诊断
-                <span v-if="!store.issues.length" class="hero-current-tag">一切正常</span>
-                <span v-else-if="errorCount" class="hero-current-tag" style="color: #ff8589; border-color: rgba(229,72,77,.4); background: rgba(229,72,77,.1)">
-                  {{ errorCount }} 项需要处理
-                </span>
-                <span v-else class="hero-current-tag" style="color: #ffc75d; border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.1)">
-                  {{ store.issues.length }} 项建议关注
-                </span>
-              </div>
-              <div class="tool-hero-sub">检查 PATH、shim、环境变量与 shell 钩子的冲突配置</div>
-            </div>
-            <NButton type="primary" @click="send({ op: 'fix' })">一键修复</NButton>
-          </div>
-
-          <NEmpty
-            v-if="!store.issues.length"
-            description="没有发现问题：PATH、shim 与 shell 钩子均无冲突"
-            style="margin-top: 60px"
-          />
-
-          <div v-else class="ver-grid" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))">
-            <div v-for="(issue, i) in store.issues" :key="issue.code + i" class="issue-card" :class="issue.level">
-              <div class="issue-head">
-                <span class="issue-level">{{ issueLabel(issue.level) }}</span>
-                <span class="issue-code">{{ issue.code }}</span>
-              </div>
-              <div class="issue-msg">{{ issue.message }}</div>
-            </div>
-          </div>
-        </template>
-
-        <!-- 工具页 -->
-        <template v-else>
-          <div class="tool-hero">
-            <div class="tool-hero-icon">
-              <BrandLogo :kind="activeTool" size="xl" />
-            </div>
-            <div style="flex: 1; min-width: 0">
-              <div class="tool-hero-title">
-                {{ TOOL_LABELS[activeTool] }}
-                <span v-if="currentOf(activeTool)" class="hero-current-tag">
-                  {{ currentOf(activeTool)!.label || currentOf(activeTool)!.version }}
-                </span>
-              </div>
-              <div class="tool-hero-sub">{{ TOOL_BLURBS[activeTool] }}</div>
-            </div>
-            <NButton size="small" secondary @click="send({ op: 'import' })">导入目录</NButton>
-          </div>
-
-          <!-- 下载条 -->
-          <div class="dl-card">
-            <span class="dl-label">下载{{ TOOL_LABELS[activeTool] }}{{ activeTool === 'androidsdk' ? '' : '大版本' }}</span>
-            <NInput
-              v-if="activeTool !== 'androidsdk'"
-              v-model:value="dlVersion"
-              size="small"
-              placeholder="如 22 / 17 / 3"
-              style="width: 130px"
-              :disabled="store.installing"
-              @keyup.enter="download"
-            />
-            <span v-else class="dl-label" style="color: var(--text-faint)">platform-tools 最新版</span>
-            <NSelect
-              v-model:value="dlMirror"
-              size="small"
-              :options="mirrorOptions"
-              style="width: 116px"
-              :disabled="store.installing"
-            />
-            <NButton size="small" type="primary" ghost :loading="store.installing" @click="download">
-              {{ store.installing ? '下载中…' : '下载并切换' }}
-            </NButton>
-          </div>
-
-          <NSpin v-if="store.installing" size="small" style="width: 100%; padding: 4px 0 10px">
-            <div class="issue-msg">正在下载，视网络可能需要几分钟，完成后自动切换。</div>
-          </NSpin>
-
-          <NEmpty
-            v-if="!store.runtimes.length"
-            :description="`本机没有发现 ${TOOL_LABELS[activeTool]}`"
-            style="margin-top: 50px"
-          >
-            <template #extra>
-              <NButton size="small" secondary @click="send({ op: 'scan' })">扫描本机</NButton>
-              <NButton size="small" secondary @click="send({ op: 'import' })">导入目录</NButton>
-            </template>
-          </NEmpty>
-
-          <div v-else class="ver-grid">
-            <div
-              v-for="item in store.runtimes"
-              :key="item.home"
-              class="ver-card"
-              :class="{ active: isActive(item) }"
-            >
-              <div class="ver-card-head">
-                <BrandLogo :kind="item.tool" size="lg" />
-                <span class="ver-card-title">{{ item.label || item.version }}</span>
-                <span v-if="isActive(item)" class="active-dot">当前</span>
-              </div>
-              <div class="ver-card-meta">
-                <span>版本 <code>{{ item.version }}</code> · {{ item.vendor || '—' }}</span>
-                <span><code>{{ item.home }}</code></span>
-                <span v-if="item.binary"><code>{{ item.binary }}</code></span>
-              </div>
-              <div class="ver-card-actions">
-                <NButton
-                  v-if="!isActive(item)"
-                  size="small"
-                  type="primary"
-                  @click="useHome(item.home)"
-                >
-                  切换到此版本
-                </NButton>
-                <NButton v-else size="small" disabled>已激活</NButton>
-                <NButton
-                  v-if="!isActive(item)"
-                  size="small"
-                  quaternary
-                  type="error"
-                  @click="askRemove(item)"
-                >
-                  移除
-                </NButton>
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-if="store.runtimes.length"
-            class="issue-msg"
-            style="margin-top: 14px; color: var(--text-faint)"
-          >
-            当前终端的 {{ TOOL_COMMANDS[activeTool] }} 已指向激活版本；切换后立即生效，无需重开终端。
-          </div>
-        </template>
+        <AboutPage v-if="showAbout" />
+        <DoctorPage v-else-if="store.page === 'doctor'" />
+        <ToolPage v-else :tool-id="activeTool" @ask-remove="askRemove" />
       </main>
     </div>
 
