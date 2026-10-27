@@ -18,10 +18,11 @@ var usage = `用法：devswitch <命令> [参数]
   scan                    扫描本机已有版本
   list [tool] [--json]    查看列表，* 为当前
   current                 显示当前选中的版本
-  use <tool> <version>    切换版本（node/java/maven/gradle/androidsdk）
+  use <tool> <version>    切换版本（node/java/maven/gradle/androidsdk/golang/python）
   install <tool> <ver>    下载安装并切换（--mirror npmmirror|tuna）
   import <tool> <path>    导入一个本地安装目录
   remove <tool> <ver>    移出版本清单（--purge 删目录，须确认且仅限用户目录内）
+  env-project [dir]      输出项目环境的会话级片段（.devswitch/.nvmrc 自动切换用）
   export [file]           导出版本选择到 .devswitch
   apply <file>            按文件对齐版本（--install-missing）
   which <name>            打印当前实际二进制路径
@@ -54,6 +55,8 @@ func Main(args []string) int {
 		return cmdImport(rest)
 	case "remove":
 		return cmdRemove(rest)
+	case "env-project":
+		return cmdEnvProject(rest)
 	case "export":
 		return cmdExport(rest)
 	case "apply":
@@ -76,7 +79,7 @@ func Main(args []string) int {
 
 func parseTool(arg string) (models.Tool, bool) {
 	switch arg {
-	case "node", "java", "maven", "gradle", "androidsdk":
+	case "node", "java", "maven", "gradle", "androidsdk", "golang", "python":
 		return models.Tool(arg), true
 	}
 	return "", false
@@ -196,10 +199,12 @@ func cmdInstall(args []string) int {
 		}
 	}
 	tool, ok := parseTool(toolArg)
-	// androidsdk 走 latest 通道，版本参数可省
-	if !ok || (version == "" && tool != models.AndroidSDK) {
+	// androidsdk / golang / python 走 latest 通道，版本参数可省
+	latestTools := tool == models.AndroidSDK || tool == models.Golang || tool == models.Python
+	if !ok || (version == "" && !latestTools) {
 		fmt.Fprintln(os.Stderr, "用法：devswitch install <node|java|maven|gradle> <大版本号> [--mirror official|npmmirror|tuna]")
 		fmt.Fprintln(os.Stderr, "      devswitch install androidsdk [--mirror official|tencent]")
+		fmt.Fprintln(os.Stderr, "      devswitch install golang|python [大版本号]（缺省取最新）")
 		return 1
 	}
 	home, fullVersion, err := service.InstallRuntime(tool, version, mirror)

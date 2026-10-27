@@ -35,7 +35,7 @@ func ShimScript(kind, name string) string {
 			"exit 127",
 			"",
 		}, "\n")
-	case "maven", "gradle":
+	case "maven", "gradle", "golang":
 		varName := "DEVSWITCH_" + strings.ToUpper(kind) + "_HOME"
 		lookup = strings.Join([]string{
 			fmt.Sprintf(`if [ -n "$%s" ] && [ -x "$%s/bin/%s" ]; then`, varName, varName, name),
@@ -43,6 +43,25 @@ func ShimScript(kind, name string) string {
 			"fi",
 			"",
 		}, "\n")
+	case "python":
+		varName := "DEVSWITCH_PYTHON_HOME"
+		if name == "pip" {
+			// pbs 的 pip 脚本 shebang 指向构建机绝对路径，直接 exec 会失败；
+			// 经 python -m pip 走解释器自身。
+			lookup = strings.Join([]string{
+				fmt.Sprintf(`if [ -n "$%s" ] && [ -x "$%s/bin/python3" ]; then`, varName, varName),
+				fmt.Sprintf(`  exec "$%s/bin/python3" -m pip "$@"`, varName),
+				"fi",
+				"",
+			}, "\n")
+		} else {
+			lookup = strings.Join([]string{
+				fmt.Sprintf(`if [ -n "$%s" ] && [ -x "$%s/bin/python3" ]; then`, varName, varName),
+				fmt.Sprintf(`  exec "$%s/bin/python3" "$@"`, varName),
+				"fi",
+				"",
+			}, "\n")
+		}
 	case "androidsdk":
 		varName := "DEVSWITCH_ANDROIDSDK_HOME"
 		lookup = strings.Join([]string{
@@ -86,6 +105,14 @@ func winShimTargets(kind, name string, state *models.State) []string {
 		return []string{home + "\\" + WinNodeTargets[name]}
 	case "maven", "gradle":
 		return []string{home + "\\bin\\" + WinBuildtoolTargets[name]}
+	case "golang":
+		return []string{home + "\\bin\\" + name + ".exe"}
+	case "python":
+		if name == "pip" {
+			// 官方布局 Scripts\pip.exe 在前，pbs 根目录 pip.exe 在后
+			return []string{home + "\\Scripts\\pip.exe", home + "\\pip.exe"}
+		}
+		return []string{home + "\\" + name + ".exe", home + "\\Scripts\\" + name + ".exe"}
 	case "androidsdk":
 		return []string{home + "\\platform-tools\\" + name + ".exe"}
 	default: // java
@@ -95,6 +122,17 @@ func winShimTargets(kind, name string, state *models.State) []string {
 
 // ShimScriptWindows 生成 .cmd shim（cmd/PowerShell 入口）。
 func ShimScriptWindows(kind, name string, state *models.State) string {
+	// python-build-standalone 无独立 pip.exe（Scripts 为空）：经 python -m pip
+	if kind == "python" && name == "pip" {
+		if r := state.CurrentRuntime(models.Python); r != nil {
+			return strings.Join([]string{
+				"@echo off",
+				"rem DevSwitch shim — pip",
+				`"` + WinHome(r.Home) + `\python.exe" -m pip %*`,
+				"",
+			}, "\r\n")
+		}
+	}
 	targets := winShimTargets(kind, name, state)
 	lines := []string{"@echo off", "rem DevSwitch shim — " + name}
 	if len(targets) == 0 {
@@ -126,6 +164,22 @@ func ShimScriptWindows(kind, name string, state *models.State) string {
 // ShimScriptWindowsSh 生成无扩展名 sh twin（Git Bash 在 PATH 解析中
 // 会先命中它而不是 .cmd）。
 func ShimScriptWindowsSh(kind, name string, state *models.State) string {
+	// pbs 无独立 pip.exe：经 python -m pip（MSYS 路径）
+	if kind == "python" && name == "pip" {
+		if r := state.CurrentRuntime(models.Python); r != nil {
+			msys := ToMsysPath(WinHome(r.Home)) + "/python.exe"
+			return strings.Join([]string{
+				"#!/bin/sh",
+				"# DevSwitch shim — pip",
+				"if [ -x " + quote(msys) + " ]; then",
+				"  exec " + quote(msys) + " -m pip \"$@\"",
+				"fi",
+				`echo "` + missingMessage(kind, name) + `" >&2`,
+				"exit 127",
+				"",
+			}, "\n")
+		}
+	}
 	var lines []string
 	for _, target := range winShimTargets(kind, name, state) {
 		msys := ToMsysPath(target)

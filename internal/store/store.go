@@ -14,9 +14,9 @@ import (
 // pythonState 镜像 Python 侧 JSON 字段名；Tool 作为 map key 会由
 // encoding/json 按字符串处理，键名即 "node"/"java"/…
 type pythonState struct {
-	Schema   int                       `json:"schema"`
-	Current  map[string]string         `json:"current"`
-	Runtimes []models.Runtime          `json:"runtimes"`
+	Schema   int               `json:"schema"`
+	Current  map[string]string `json:"current"`
+	Runtimes []models.Runtime  `json:"runtimes"`
 }
 
 func Load() models.State {

@@ -67,6 +67,14 @@ DevSwitch 是跨 Windows/Linux 的开发工具链版本管理器，管理 Node.j
 
 **业务说明**：检测 Android Studio 默认目录（%LOCALAPPDATA%\Android\Sdk、~/Android/Sdk）、ANDROID_HOME/ANDROID_SDK_ROOT 指向的 SDK 与手动导入的 SDK 根目录；识别 platform-tools 版本（adb 版本）。所属 L3：运行时扫描。
 
+###### 2.1.1.5 Go 工具链检测
+
+**业务说明**：检测 GOROOT 指向、PATH 中 go 回溯（`<root>/bin/go`）与常见安装位（Program Files\Go、scoop/winget）；版本读发行包 VERSION 文件（v1.2 新增）。所属 L3：运行时扫描。
+
+###### 2.1.1.6 Python 环境检测
+
+**业务说明**：检测 PATH 回溯、%LOCALAPPDATA%\Programs\Python 布局与注册表卸载表；解压版布局优先读 .devswitch-version 元数据（v1.2 新增）。所属 L3：运行时扫描。
+
 ##### 2.1.2 手动导入
 
 **业务说明**：对扫描覆盖不到的安装位置，由用户指定目录导入并校验有效性。所属 L2：运行时纳管。
@@ -128,6 +136,10 @@ DevSwitch 是跨 Windows/Linux 的开发工具链版本管理器，管理 Node.j
 
 **业务说明**：shim 机制使新命令解析即走新版本；本机进程内同步 PATH（含 GUI 自身）。所属 L3：会话即时生效。
 
+###### 2.2.2.3 项目级自动切换
+
+**业务说明**：cd 进入含 .devswitch / .nvmrc 的目录时，shell 钩子在当前会话前置项目所需版本（direnv 语义，不写全局状态）；无标记文件时零开销（v1.2 新增）。所属 L3：会话即时生效。
+
 ### 2.3 版本治理
 
 **业务说明**：维持团队与本机环境的健康与一致。
@@ -167,7 +179,9 @@ DevSwitch 是跨 Windows/Linux 的开发工具链版本管理器，管理 Node.j
 │   │   ├── Node.js 环境检测
 │   │   ├── Java 环境检测
 │   │   ├── Maven 与 Gradle 环境检测
-│   │   └── Android SDK 环境检测
+│   │   ├── Android SDK 环境检测
+│   │   ├── Go 工具链检测
+│   │   └── Python 环境检测
 │   ├── 手动导入
 │   │   └── 目录导入与校验
 │   ├── 运行时下载
@@ -182,7 +196,8 @@ DevSwitch 是跨 Windows/Linux 的开发工具链版本管理器，管理 Node.j
 │   │   └── HOME 环境变量生效
 │   └── 会话即时生效
 │       ├── shell 钩子
-│       └── 会话内 PATH 前置
+│       ├── 会话内 PATH 前置
+│       └── 项目级自动切换
 └── 版本治理
     ├── 版本选择共享
     │   ├── 版本选择导出
@@ -217,3 +232,4 @@ DevSwitch 是跨 Windows/Linux 的开发工具链版本管理器，管理 Node.j
 |------|------|---------|
 | v1.0 | 2026-10-08 | 首次生成；纳入 Android SDK 纳管（运行时扫描/下载/切换新增 androidsdk 维度） |
 | v1.1 | 2026-10-09 | 新增 L3 运行时移除（移出清单/磁盘卸载） |
+| v1.2 | 2026-10-27 | 扫描新增 Go/Python 检测（L4）；会话即时生效新增项目级自动切换（L4） |

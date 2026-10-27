@@ -10,10 +10,10 @@ import (
 // chooseFolderNative：系统文件夹选择对话框（SHBrowseForFolder，shell32）。
 // 一次调用、结构简单可靠；BIF_NEWDIALOGSTYLE 提供可缩放的新版树形界面。
 var (
-	shell32Browse      = syscall.NewLazyDLL("shell32.dll")
-	procSHBrowse       = shell32Browse.NewProc("SHBrowseForFolderW")
+	shell32Browse       = syscall.NewLazyDLL("shell32.dll")
+	procSHBrowse        = shell32Browse.NewProc("SHBrowseForFolderW")
 	procSHGetPathFromID = shell32Browse.NewProc("SHGetPathFromIDListW")
-	procCoTaskMemFreeD = syscall.NewLazyDLL("ole32.dll").NewProc("CoTaskMemFree")
+	procCoTaskMemFreeD  = syscall.NewLazyDLL("ole32.dll").NewProc("CoTaskMemFree")
 )
 
 const (

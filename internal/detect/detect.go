@@ -63,6 +63,7 @@ func uniquePaths(values []string) []string {
 // probeWhitelist：whichAll 只探测这些内部常量命令名。
 var probeWhitelist = map[string]bool{
 	"node": true, "java": true, "mvn": true, "gradle": true, "adb": true,
+	"go": true, "python": true,
 }
 
 // whichAll 枚举 PATH 上的全部命中（纯目录扫描，无进程执行）。
@@ -385,6 +386,8 @@ func Inspectors() map[models.Tool]func(string) *models.Runtime {
 		models.Node: inspectNode, models.Java: inspectJava,
 		models.Maven: inspectMaven, models.Gradle: inspectGradle,
 		models.AndroidSDK: inspectAndroidSDK,
+		models.Golang:     inspectGolang,
+		models.Python:     inspectPython,
 	}
 }
 
@@ -565,6 +568,8 @@ func ScanRuntimes() []models.Runtime {
 		{models.Maven, func() []string { return candidateBuildtoolHomes(models.Maven) }, inspectMaven},
 		{models.Gradle, func() []string { return candidateBuildtoolHomes(models.Gradle) }, inspectGradle},
 		{models.AndroidSDK, candidateAndroidSDKHomes, inspectAndroidSDK},
+		{models.Golang, candidateGolangHomes, inspectGolang},
+		{models.Python, candidatePythonHomes, inspectPython},
 	}
 	found := []models.Runtime{}
 	seen := map[string]bool{}
@@ -603,6 +608,10 @@ func InferActive(runtimes []models.Runtime, tool models.Tool) *models.Runtime {
 		cmd = "mvn"
 	case models.AndroidSDK:
 		cmd = "adb"
+	case models.Golang:
+		cmd = "go"
+	case models.Python:
+		cmd = "python"
 	}
 	for _, binary := range whichAll(cmd) {
 		if isShim(binary) {

@@ -26,6 +26,8 @@ var shimMissingByKind = map[string]string{
 	"maven":      "DevSwitch: 未配置 Maven，或当前版本没有 {n}。运行 devswitch list / use",
 	"gradle":     "DevSwitch: 未配置 Gradle，或当前版本没有 {n}。运行 devswitch list / use",
 	"androidsdk": "DevSwitch: 未配置 Android SDK，或当前 platform-tools 没有 {n}。运行 devswitch list / use",
+	"golang":     "DevSwitch: 未配置 Go，或当前 GOROOT 没有 {n}。运行 devswitch list / use",
+	"python":     "DevSwitch: 未配置 Python，或当前版本没有 {n}。运行 devswitch list / use",
 	"node-tool":  "DevSwitch: 当前 Node 没有 {n}。用这套 Node 执行 npm i -g 安装，或切到装过它的版本。",
 }
 
@@ -113,7 +115,7 @@ func WriteEnvSh(state *models.State) error {
 		`  _devswitch_front "$JAVA_HOME/bin"`,
 		"fi",
 	)
-	for _, tool := range []models.Tool{models.Maven, models.Gradle} {
+	for _, tool := range []models.Tool{models.Maven, models.Gradle, models.Golang} {
 		upper := strings.ToUpper(string(tool))
 		varName := models.ToolHomeVars[tool]
 		lines = append(lines,
@@ -176,7 +178,7 @@ func writeEnvShGdBash(state *models.State) error {
 		`  _devswitch_front "$DEVSWITCH_JAVA_HOME/bin"`,
 		"fi",
 	)
-	for _, tool := range []models.Tool{models.Maven, models.Gradle} {
+	for _, tool := range []models.Tool{models.Maven, models.Gradle, models.Golang} {
 		upper := strings.ToUpper(string(tool))
 		varName := models.ToolHomeVars[tool]
 		lines = append(lines,

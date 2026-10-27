@@ -38,7 +38,9 @@ var allowedHosts = map[string]bool{
 	"api.adoptium.net": true, "api.github.com": true,
 	"github.com": true, "objects.githubusercontent.com": true,
 	"repo.maven.apache.org": true, "dlcdn.apache.org": true, "services.gradle.org": true,
-	"dl.google.com": true,
+	"dl.google.com":    true,
+	"golang.google.cn": true, "go.dev": true,
+	"cdn.npmmirror.com": true, // npmmirror binaries 的实际文件 CDN
 }
 
 func assertSafeURL(raw string) error {
@@ -550,16 +552,30 @@ func installJava(major, mirror string) (string, error) {
 // ---------------------------------------------------------------------------
 
 func downloadWithSidecar(rawURL string) (string, error) {
+	return downloadWithChecksum(rawURL, "", "")
+}
+
+// downloadWithChecksum 下载并校验。checksum 为空时尝试 .sha256/.sha512
+// sidecar——部分镜像（如 golang.google.cn）对不存在的 sidecar 返回 200 的
+// HTML 页，因此值必须匹配十六进制长度才采信。调用方已知校验值时直接传入。
+func downloadWithChecksum(rawURL, checksum, algo string) (string, error) {
 	temp, _ := os.MkdirTemp("", "ds-download-")
-	checksum, algo := "", "sha256"
-	for _, suffix := range []string{".sha256", ".sha512"} {
-		if data, err := httpGet(rawURL+suffix, 15*time.Second); err == nil {
-			first := strings.Fields(strings.TrimSpace(string(data)))
-			if len(first) > 0 {
-				checksum = first[0]
-				algo = strings.TrimPrefix(suffix, ".")
+	if checksum == "" {
+		checksum, algo = "", "sha256"
+		for _, suffix := range []string{".sha256", ".sha512"} {
+			if data, err := httpGet(rawURL+suffix, 15*time.Second); err == nil {
+				first := strings.Fields(strings.TrimSpace(string(data)))
+				wantLen := 64
+				if suffix == ".sha512" {
+					wantLen = 128
+				}
+				// 防御：非十六进制（HTML 错误页等）不采信
+				if len(first) > 0 && len(first[0]) == wantLen && isHex(first[0]) {
+					checksum = first[0]
+					algo = strings.TrimPrefix(suffix, ".")
+				}
+				break
 			}
-			break
 		}
 	}
 	archivePath := filepath.Join(temp, filepath.Base(rawURL))
@@ -574,6 +590,15 @@ func downloadWithSidecar(rawURL string) (string, error) {
 		}
 	}
 	return archivePath, nil
+}
+
+func isHex(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return len(s) > 0
 }
 
 var mavenMetaVersionRe = regexp.MustCompile(`<version>(\d+\.\d+\.\d+)</version>`)
@@ -798,6 +823,10 @@ func InstallTool(tool models.Tool, version, mirror string) (string, error) {
 		return installGradle(version, mirror)
 	case models.AndroidSDK:
 		return installAndroidSDK(version, mirror)
+	case models.Golang:
+		return installGolang(version, mirror)
+	case models.Python:
+		return installPython(version, mirror)
 	}
 	return "", fmt.Errorf("暂不支持下载该工具：%s", tool)
 }

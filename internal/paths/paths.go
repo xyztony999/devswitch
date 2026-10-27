@@ -13,6 +13,9 @@ const (
 	HookBegin  = "# >>> devswitch >>>"
 	HookEnd    = "# <<< devswitch <<<"
 	ShimMarker = "DevSwitch shim"
+	// 自动切换钩子是独立块：与主钩子分开增删，旧 golden 基线不受影响。
+	HookAutoBegin = "# >>> devswitch auto-switch >>>"
+	HookAutoEnd   = "# <<< devswitch auto-switch <<<"
 )
 
 var IsWindows = runtime.GOOS == "windows"

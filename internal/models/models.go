@@ -16,17 +16,19 @@ const (
 	Maven      Tool = "maven"
 	Gradle     Tool = "gradle"
 	AndroidSDK Tool = "androidsdk"
+	Golang     Tool = "golang"
+	Python     Tool = "python"
 )
 
-var Tools = []Tool{Node, Java, Maven, Gradle, AndroidSDK}
+var Tools = []Tool{Node, Java, Maven, Gradle, AndroidSDK, Golang, Python}
 
 // AppVersion 全局唯一版本号来源，发布构建用
 // -ldflags "-X .../internal/models.AppVersion=x.y.z" 注入。
-var AppVersion = "2.2.1-dev"
+var AppVersion = "2.3.0-dev"
 
 var ToolLabels = map[Tool]string{
 	Node: "Node.js", Java: "Java", Maven: "Maven", Gradle: "Gradle",
-	AndroidSDK: "Android SDK",
+	AndroidSDK: "Android SDK", Golang: "Go", Python: "Python",
 }
 
 // 各工具的 shim 命令名（不带平台后缀）。
@@ -36,17 +38,20 @@ var (
 	MavenShims      = []string{"mvn", "mvnDebug"}
 	GradleShims     = []string{"gradle"}
 	AndroidSDKShims = []string{"adb", "fastboot"}
+	GolangShims     = []string{"go", "gofmt"}
+	PythonShims     = []string{"python", "python3", "pip"}
 )
 
 var ToolShims = map[Tool][]string{
 	Node: NodeShims, Java: JavaShims, Maven: MavenShims, Gradle: GradleShims,
-	AndroidSDK: AndroidSDKShims,
+	AndroidSDK: AndroidSDKShims, Golang: GolangShims, Python: PythonShims,
 }
 
 // ToolHomeVars 是各工具暴露给 IDE / 构建脚本的环境变量名。
+// Python 刻意不设（PYTHONHOME 官方不推荐，坑多；PATH 语义由 shim 承载）。
 var ToolHomeVars = map[Tool]string{
 	Java: "JAVA_HOME", Maven: "MAVEN_HOME", Gradle: "GRADLE_HOME",
-	AndroidSDK: "ANDROID_HOME",
+	AndroidSDK: "ANDROID_HOME", Golang: "GOROOT",
 }
 
 type Runtime struct {

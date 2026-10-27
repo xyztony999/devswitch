@@ -124,6 +124,7 @@ func ensureProcessPath() {
 func applyHooks(state *models.State) {
 	for _, target := range paths.HookTargets() {
 		_, _ = apply.InstallHook(target)
+		_, _ = apply.InstallHookAuto(target)
 	}
 	writeUserEnv(state)
 }
@@ -214,6 +215,41 @@ func WhichBinary(name string) (string, bool) {
 			exe = name + ".exe"
 		}
 		return exists(filepath.Join(r.Home, "platform-tools", exe))
+	case "go", "gofmt":
+		r := state.CurrentRuntime(models.Golang)
+		if r == nil {
+			return "", false
+		}
+		suffix := ""
+		if paths.IsWindows {
+			suffix = ".exe"
+		}
+		return exists(filepath.Join(r.Home, "bin", name+suffix))
+	case "python", "python3":
+		r := state.CurrentRuntime(models.Python)
+		if r == nil {
+			return "", false
+		}
+		if paths.IsWindows {
+			return exists(filepath.Join(r.Home, "python.exe"))
+		}
+		return exists(filepath.Join(r.Home, "bin", "python3"))
+	case "pip":
+		r := state.CurrentRuntime(models.Python)
+		if r == nil {
+			return "", false
+		}
+		if paths.IsWindows {
+			// pbs 无独立 pip.exe：入口是 python.exe -m pip
+			if p, ok := exists(filepath.Join(r.Home, "Scripts", "pip.exe")); ok {
+				return p, true
+			}
+			return exists(filepath.Join(r.Home, "python.exe"))
+		}
+		if p, ok := exists(filepath.Join(r.Home, "bin", "pip3")); ok {
+			return p, true
+		}
+		return exists(filepath.Join(r.Home, "bin", "python3"))
 	case "mvn", "mvnDebug", "gradle":
 		tool := models.Maven
 		if name == "gradle" {

@@ -31,7 +31,11 @@ func cmdCleanup() int {
 
 	// 2. shell 钩子（bashrc / profile / PowerShell profile / Git Bash bashrc）
 	for _, target := range paths.HookTargets() {
-		if apply.RemoveHook(target) {
+		changed := apply.RemoveHook(target)
+		if apply.RemoveHookAuto(target) {
+			changed = true
+		}
+		if changed {
 			removed++
 		}
 	}

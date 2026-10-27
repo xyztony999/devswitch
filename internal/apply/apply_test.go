@@ -103,15 +103,25 @@ func TestGoldenHookSnippet(t *testing.T) {
 	}
 }
 
-// stripAndroidSDKLines 删除 androidsdk 接入带来的增量行（赋值行 + 专属段），
-// 余下内容与 Python 时代的 golden 逐字节一致——即"四工具语义不回归"的交叉断言。
-func stripAndroidSDKLines(text string) string {
+// stripAddedToolLines 删除 androidsdk/golang/python 接入带来的增量行
+// （赋值行 + 专属 export 段），余下内容与 Python 时代的 golden 逐字节一致——
+// 即"原始四工具语义不回归"的交叉断言。每接入一个新工具只需在 addedTools 加名。
+var addedTools = []string{"ANDROIDSDK", "GOLANG", "PYTHON"}
+
+func stripAddedToolLines(text string) string {
 	lines := strings.Split(text, "\n")
 	kept := make([]string, 0, len(lines))
 	skipBlock := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.Contains(line, "DEVSWITCH_ANDROIDSDK_HOME") && strings.HasSuffix(trimmed, "]; then") {
+		hit := false
+		for _, name := range addedTools {
+			if strings.Contains(line, "DEVSWITCH_"+name+"_HOME") {
+				hit = true
+				break
+			}
+		}
+		if hit && strings.HasSuffix(trimmed, "]; then") {
 			skipBlock = true
 			continue
 		}
@@ -121,7 +131,7 @@ func stripAndroidSDKLines(text string) string {
 			}
 			continue
 		}
-		if strings.Contains(line, "DEVSWITCH_ANDROIDSDK_HOME") {
+		if hit {
 			continue // 赋值行
 		}
 		kept = append(kept, line)
@@ -143,10 +153,10 @@ func TestGoldenCurrentEnvAndEnvSh(t *testing.T) {
 	envData, _ := os.ReadFile(paths.EnvFile())
 
 	// 交叉断言：剔除 androidsdk 增量后与旧 golden 字节一致（四工具不回归）
-	if got, want := stripAndroidSDKLines(normalize(string(currentData), root)), golden(t, "current.env"); got != want {
+	if got, want := stripAddedToolLines(normalize(string(currentData), root)), golden(t, "current.env"); got != want {
 		t.Errorf("current.env（剔除 androidsdk 行）不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
-	if got, want := stripAndroidSDKLines(normalize(string(envData), root)), golden(t, "env.sh"); got != want {
+	if got, want := stripAddedToolLines(normalize(string(envData), root)), golden(t, "env.sh"); got != want {
 		t.Errorf("env.sh（剔除 androidsdk 段）不一致:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
 

@@ -18,6 +18,8 @@
 | maven | Maven | 全部 |
 | gradle | Gradle | 全部 |
 | androidsdk | Android SDK（v1.0 新增） | 全部 |
+| golang | Go 工具链（v1.2 新增） | 全部 |
+| python | Python（v1.2 新增） | 全部 |
 
 ### ENUM-SOURCE 运行时来源
 
@@ -52,3 +54,4 @@
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
 | v1.0 | 2026-10-08 | 首次建池；登记 androidsdk 相关枚举（TOOL 增值、SOURCE 增 env/path、MIRROR 增 tencent） |
+| v1.1 | 2026-10-27 | TOOL 增 golang/python |

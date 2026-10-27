@@ -96,6 +96,18 @@ Go 2.0 单文件实现（CLI + GUI 同体）。应用架构描述功能的组织
 
 **涉及用户类型**：- [✓] 开发者
 
+##### 2.1.2.3 项目级自动切换
+
+**功能说明**：`devswitch env-project` 输出项目环境的 POSIX export 语句；shell 钩子（独立块，PROMPT_COMMAND 驱动）cd 后在本会话内 eval——会话级作用域，不写 state.json。支持 .devswitch / .nvmrc。
+
+**涉及用户类型**：- [✓] 开发者
+
+**调用关系**：
+
+| 调用模块/子模块 | 调用说明 |
+|---------------|---------|
+| S-01 运行时扫描 | 定位项目文件所需版本的实例 |
+
 ### 2.2 支撑业务域
 
 **应用域概述**：为核心切换提供版本候选（扫描/导入/下载）与环境一致性（共享/诊断）。
@@ -123,6 +135,16 @@ Go 2.0 单文件实现（CLI + GUI 同体）。应用架构描述功能的组织
 
 ##### 2.2.1.4 Android SDK 检测
 **功能说明**：Android Studio 默认目录（%LOCALAPPDATA%\Android\Sdk / ~/Android/Sdk）、ANDROID_HOME/ANDROID_SDK_ROOT 环境变量指向、PATH 中 adb 回溯；识别 platform-tools 版本（adb 元数据）与 build-tools 列表。
+**涉及用户类型**：- [✓] 开发者
+**调用关系**：D-01 工具注册表（检测器分发）
+
+##### 2.2.1.5 Go 工具链检测
+**功能说明**：GOROOT 指向 / PATH 回溯 / 常见安装位（Program Files\Go、scoop）；版本读发行包 VERSION 文件（无子进程）。
+**涉及用户类型**：- [✓] 开发者
+**调用关系**：D-01 工具注册表（检测器分发）
+
+##### 2.2.1.6 Python 环境检测
+**功能说明**：PATH 回溯 / Programs\Python 布局 / 注册表卸载表；.devswitch-version 元数据优先。
 **涉及用户类型**：- [✓] 开发者
 **调用关系**：D-01 工具注册表（检测器分发）
 
@@ -242,13 +264,16 @@ DevSwitch
 │   │   └── HOME 环境变量生效 — 含 ANDROID_HOME + platform-tools 入 PATH
 │   └── C-02 会话即时生效
 │       ├── shell 钩子 — bashrc/profile/PowerShell/Git Bash
-│       └── 会话内 PATH 前置 — shim 定位 + 进程内同步
+│       ├── 会话内 PATH 前置 — shim 定位 + 进程内同步
+│       └── 项目级自动切换 — env-project + PROMPT_COMMAND（会话级）
 ├── 支撑业务域
 │   ├── S-01 运行时扫描
 │   │   ├── Node.js 检测
 │   │   ├── Java 检测
 │   │   ├── Maven/Gradle 检测
-│   │   └── Android SDK 检测 — AS 默认目录/ANDROID_HOME/PATH 回溯
+│   │   ├── Android SDK 检测 — AS 默认目录/ANDROID_HOME/PATH 回溯
+│   │   ├── Go 工具链检测 — GOROOT/VERSION 文件
+│   │   └── Python 环境检测 — PATH/布局/注册表
 │   ├── S-02 手动导入
 │   │   └── 目录导入与校验 — 五类工具统一（SDK 校验 platform-tools）
 │   ├── S-03 运行时下载
@@ -281,3 +306,4 @@ DevSwitch
 |------|------|---------|
 | v1.0 | 2026-10-08 | 首次生成；D-01 新增 androidsdk 注册项，S-01/S-03/C-01 扩展 androidsdk 维度 |
 | v1.1 | 2026-10-09 | 支撑业务域新增 S-06 运行时移除 |
+| v1.2 | 2026-10-27 | S-01 新增 Go/Python 检测；C-02 新增项目级自动切换 |

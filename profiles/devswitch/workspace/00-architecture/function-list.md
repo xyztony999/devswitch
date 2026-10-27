@@ -71,6 +71,8 @@ DevSwitch 单用户本机工具，功能清单按"开发者"单一用户类型�
 | 菜单名称 | 功能点描述 | 所属功能子模块 | 备注 |
 |---------|-----------|---------------|------|
 | 重新扫描 | CLI/GUI 触发，重建生效物并刷新列表 | 会话内 PATH 前置 | |
+| 项目环境输出 | `devswitch env-project`：读 .devswitch/.nvmrc 输出会话级 export 语句 | 项目级自动切换 | v1.2 |
+| 自动切换钩子 | shell 钩子自动 eval（PROMPT_COMMAND，会话级不写全局） | 项目级自动切换 | v1.2 |
 
 #### 2.1.2 支撑业务域
 
@@ -96,6 +98,8 @@ DevSwitch 单用户本机工具，功能清单按"开发者"单一用户类型�
 | 菜单名称 | 功能点描述 | 所属功能子模块 | 备注 |
 |---------|-----------|---------------|------|
 | 下载安装 | `devswitch install androidsdk [ver] --mirror tencent` / GUI 下载条；下载 cmdline-tools+platform-tools 解压至用户目录并切换 | 国内镜像下载 | 默认官方源 |
+| 下载 Go | `devswitch install golang <ver>`（golang.google.cn 清单解析）；GOROOT 指向新装的 ~/go-<ver> | 国内镜像下载 | v1.2 |
+| 下载 Python | `devswitch install python <ver>`（python-build-standalone via npmmirror）；完整 CPython 含 pip | 国内镜像下载 | v1.2 |
 
 ##### 2.1.2.6 S-06 运行时移除
 
@@ -172,3 +176,5 @@ DevSwitch 单用户本机工具，功能清单按"开发者"单一用户类型�
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
 | v1.0 | 2026-10-08 | 首次生成；含 Android SDK 新增菜单（列表/扫描/导入/下载/切换/which adb/诊断项） |
+| v1.1 | 2026-10-09 | 新增移除版本/磁盘卸载/卡片移除菜单（补记） |
+| v1.2 | 2026-10-27 | 新增 Go/Python 下载、项目环境输出、自动切换钩子菜单 |

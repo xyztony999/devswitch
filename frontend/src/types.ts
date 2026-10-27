@@ -1,4 +1,4 @@
-export type Tool = 'node' | 'java' | 'maven' | 'gradle' | 'androidsdk'
+export type Tool = 'node' | 'java' | 'maven' | 'gradle' | 'androidsdk' | 'golang' | 'python'
 export type ToolPage = Tool | 'doctor'
 
 export interface Runtime {

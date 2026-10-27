@@ -17,27 +17,33 @@ const mirrorOptions = [
   { label: '清华源', value: 'tuna' }
 ]
 
-const TOOLS = ['node', 'java', 'maven', 'gradle', 'androidsdk'] as const
+const TOOLS = ['node', 'java', 'maven', 'gradle', 'androidsdk', 'golang', 'python'] as const
 const TOOL_LABELS: Record<string, string> = {
   node: 'Node.js',
   java: 'Java',
   maven: 'Maven',
   gradle: 'Gradle',
-  androidsdk: 'Android SDK'
+  androidsdk: 'Android SDK',
+  golang: 'Go',
+  python: 'Python'
 }
 const TOOL_COMMANDS: Record<string, string> = {
   node: 'node / npm',
   java: 'java / javac',
   maven: 'mvn',
   gradle: 'gradle',
-  androidsdk: 'adb / fastboot'
+  androidsdk: 'adb / fastboot',
+  golang: 'go / gofmt',
+  python: 'python / pip'
 }
 const TOOL_BLURBS: Record<string, string> = {
   node: 'JavaScript 运行时 · 版本切换对已打开的终端立即生效',
   java: 'JDK · 同步维护 JAVA_HOME（终端钩子 + 用户环境变量）',
   maven: '构建工具 · 同步维护 MAVEN_HOME',
   gradle: '构建工具 · 同步维护 GRADLE_HOME',
-  androidsdk: 'Android 开发套件 · adb / fastboot 即时生效，同步维护 ANDROID_HOME'
+  androidsdk: 'Android 开发套件 · adb / fastboot 即时生效，同步维护 ANDROID_HOME',
+  golang: 'Go 工具链 · 同步维护 GOROOT（GOPATH/GOPROXY 不动）',
+  python: 'Python · 完整 CPython 含 pip（python-build-standalone），不设 PYTHONHOME'
 }
 
 // 关于页是纯前端本地路由，不打扰后端 page 状态
@@ -97,7 +103,7 @@ function setPage(page: string) {
 
 function download() {
   const version = dlVersion.value.trim()
-  if (!version && activeTool.value !== 'androidsdk') {
+  if (!version && !['androidsdk', 'golang', 'python'].includes(activeTool.value)) {
     message.warning('请输入大版本号，例如 22 或 17')
     return
   }

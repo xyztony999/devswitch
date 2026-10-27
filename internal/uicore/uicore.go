@@ -320,8 +320,12 @@ func (c *Controller) StartInstall(version, mirror string) {
 		return
 	}
 	version = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(version), "v"))
-	if tool == models.AndroidSDK && version == "" {
-		version = "latest"
+	// androidsdk / golang / python 走 latest 通道（下载器对空版本取最新）
+	switch tool {
+	case models.AndroidSDK, models.Golang, models.Python:
+		if version == "" {
+			version = "latest"
+		}
 	}
 	major := strings.Split(version, ".")[0]
 	if version == "" || !isDigits(major) {
