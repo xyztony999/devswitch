@@ -45,6 +45,18 @@ modules:
     gates:
       gate1: { status: pass, note: "gate1-remove.md，2026-10-09" }
       gate2: { status: pass, note: "gate2-remove.md，2026-10-09；v2.2.0 发布" }
+  - name: golang-python-autoswitch
+    title: "Go 工具链 / Python / 项目级自动切换"
+    domain: core
+    stages:
+      requirement: { status: complete, note: "D0 四决策用户确认；合并式设计文档（PRD/API/交互），2026-10-27" }
+      api: { status: complete, note: "golang-python-autoswitch.md v1.0（两清单 API 实测验证）" }
+      interaction: { status: complete, note: "七工具导航 + 下载条镜像变体；autoswitch 无 GUI 载体" }
+      backend: { status: complete, note: "检测/下载/切换/治理全链路 + env-project + 独立钩子块" }
+      validation: { status: complete, note: "Gate 2 PASS 无偏差；真机双下载/pip 实跑/七导航 CDP" }
+    gates:
+      gate1: { status: pass, note: "设计文档内自检 PASS，2026-10-27" }
+      gate2: { status: pass, note: "gate2-golang-python-autoswitch.md；v2.3.0 发布" }
   - name: techstack-pool-decision
     title: "技术栈池接入决策（ADR-001）"
     domain: platform
@@ -96,6 +108,7 @@ workspace/
 | 2026-10-08 | techstack-pool-decision 模块：ADR-001 决策"暂不入栈池（方案 C）"+ Gate 1 PASS |
 | 2026-10-08 | androidsdk：B1 实现 + Gate 2 PASS + v2.1.0 发布（端到端流水线首次全程走通） |
 | 2026-10-09 | remove 模块：D0-D4 + 双 Gate PASS + v2.2.0 发布（变更管理级联首跑） |
+| 2026-10-27 | golang/python/autoswitch 三模块一批：D0-D4 + 双 Gate PASS + v2.3.0 发布 |
 
 ## 遗留决策点（编码阶段复核）
 
