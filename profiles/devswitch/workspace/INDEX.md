@@ -69,6 +69,18 @@ modules:
     gates:
       gate1: { status: pass, note: "ui-refactor.md 内自检" }
       gate2: { status: pass, note: "gate2-ui-refactor.md；v2.3.1 发布" }
+  - name: ui-responsive
+    title: "UI 响应式重建（小窗口三断点）"
+    domain: platform
+    stages:
+      requirement: { status: complete, note: "D0 两决策（渐进折叠/响应式抽屉），2026-10-27" }
+      api: { status: complete, note: "N/A：纯前端（ui-responsive.md）" }
+      interaction: { status: complete, note: "TopChips 折叠 + SideNav 三形态 + 汉堡抽屉" }
+      backend: { status: complete, note: "TopChips/SideNav 组件 + resize 断点状态；顶栏固定高" }
+      validation: { status: complete, note: "Gate 2 PASS：三断点截图 + 抽屉功能流" }
+    gates:
+      gate1: { status: pass, note: "ui-responsive.md 内自检" }
+      gate2: { status: pass, note: "gate2-responsive.md；v2.3.2 发布" }
   - name: techstack-pool-decision
     title: "技术栈池接入决策（ADR-001）"
     domain: platform
@@ -122,6 +134,7 @@ workspace/
 | 2026-10-09 | remove 模块：D0-D4 + 双 Gate PASS + v2.2.0 发布（变更管理级联首跑） |
 | 2026-10-27 | golang/python/autoswitch 三模块一批：D0-D4 + 双 Gate PASS + v2.3.0 发布 |
 | 2026-10-27 | ui-refactor：注册表组件化重构 双 Gate PASS + v2.3.1 发布 |
+| 2026-10-27 | ui-responsive：小窗口三断点适配 双 Gate PASS + v2.3.2 发布 |
 
 ## 遗留决策点（编码阶段复核）
 
